@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#F7EDE2">
+  <title>Bloom — Health Journal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --cream: #F7EDE2;
+      --warm-white: #FDF8F3;
+      --blush: #F2C4B0;
+      --rose: #E8927C;
+      --terracotta: #C8614A;
+      --sage: #8BAF8D;
+      --lavender: #C4B5D4;
+      --gold: #D4A853;
+      --sky: #9BBDD4;
+      --mauve: #B08090;
+      --brown: #B8976A;
+      --text-dark: #3D2B1F;
+      --text-mid: #7A5C4E;
+      --text-light: #A8876E;
+      --shadow-soft: rgba(61,43,31,0.06);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { width: 100%; height: 100%; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--cream);
+      color: var(--text-dark);
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 10%, rgba(242,196,176,0.35) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(196,181,212,0.25) 0%, transparent 50%),
+        radial-gradient(ellipse at 60% 30%, rgba(212,168,83,0.12) 0%, transparent 40%);
+      pointer-events: none; z-index: 0;
+    }
+    .bloom-app { display: flex; flex-direction: column; width: 100vw; min-height: 100vh; background: var(--cream); position: relative; z-index: 1; }
+    .bloom-header { position: sticky; top: 0; z-index: 100; background: rgba(247,237,226,0.92); backdrop-filter: blur(12px); padding: 16px 20px 12px; border-bottom: 1px solid rgba(200,97,74,0.10); }
+    .header-top { display: flex; align-items: center; justify-content: space-between; max-width: 480px; margin: 0 auto; width: 100%; }
+    .logo { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 600; color: var(--terracotta); letter-spacing: -0.5px; }
+    .logo em { font-style: italic; font-weight: 400; }
+    .sync-status { font-size: 11px; color: var(--text-light); display: flex; align-items: center; gap: 5px; }
+    .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--sage); }
+    .sync-dot.syncing { background: var(--gold); animation: pulse 1s infinite; }
+    .sync-dot.error { background: var(--rose); }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+    .bloom-main { flex: 1; overflow-y: auto; max-width: 480px; margin: 0 auto; width: 100%; padding-bottom: 100px; }
+    .bloom-nav { position: fixed; bottom: 0; left: 0; right: 0; max-width: 480px; margin: 0 auto; height: 78px; background: rgba(247,237,226,0.96); backdrop-filter: blur(12px); border-top: 1px solid rgba(200,97,74,0.10); display: flex; align-items: center; justify-content: space-around; z-index: 100; padding: 6px 0 18px; }
+    .nav-button { display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; border: none; background: none; padding: 4px 12px; border-radius: 12px; color: var(--text-light); font-size: 9px; font-weight: 500; }
+    .nav-button.active { color: var(--terracotta); }
+    .nav-icon { font-size: 21px; }
+
+    .form-section { padding: 18px 16px; max-width: 480px; margin: 0 auto; width: 100%; }
+    .section-title { font-family: 'Playfair Display', serif; font-size: 18px; color: var(--text-dark); margin-bottom: 14px; font-weight: 600; }
+    .section-title em { font-style: italic; color: var(--text-light); font-weight: 400; font-size: 12px; margin-left: 6px; }
+
+    .quick-add-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 24px; }
+    .quick-btn { padding: 12px 4px; border-radius: 14px; border: 2px solid; background: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; font-family: 'DM Sans', sans-serif; }
+    .quick-btn:active { transform: scale(0.96); }
+    .quick-btn-icon { font-size: 20px; }
+    .quick-btn-label { font-size: 9px; font-weight: 500; color: var(--text-mid); text-align: center; }
+
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 11px; font-weight: 500; color: var(--text-mid); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
+    .form-input, .form-textarea, select.form-input { width: 100%; padding: 11px 14px; border: 1.5px solid rgba(61,43,31,0.10); border-radius: 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text-dark); background: white; outline: none; }
+    .form-input:focus, .form-textarea:focus { border-color: var(--rose); }
+    .form-textarea { resize: none; min-height: 60px; }
+    .form-row { display: flex; gap: 10px; }
+    .form-row > * { flex: 1; }
+
+    .pill-group { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pill-option { padding: 7px 14px; border-radius: 20px; border: 1.5px solid rgba(61,43,31,0.12); font-size: 12px; font-weight: 500; color: var(--text-mid); cursor: pointer; background: white; font-family: 'DM Sans', sans-serif; }
+    .pill-option.selected { border-color: var(--terracotta); background: var(--terracotta); color: white; }
+
+    .quick-amount-row { display: flex; gap: 8px; margin-top: 8px; }
+    .quick-amount-btn { flex: 1; padding: 10px; border-radius: 10px; border: 1.5px solid rgba(61,43,31,0.10); background: white; font-size: 13px; font-weight: 500; color: var(--text-mid); cursor: pointer; }
+    .quick-amount-btn.selected { border-color: var(--sky); background: rgba(155,189,212,0.15); color: var(--text-dark); }
+
+    .progress-bar { height: 8px; background: rgba(61,43,31,0.08); border-radius: 4px; overflow: hidden; margin-top: 6px; }
+    .progress-fill { height: 100%; background: var(--sky); transition: width 0.3s; }
+    .progress-label { font-size: 11px; color: var(--text-light); margin-top: 4px; }
+
+    .btn-primary { width: 100%; padding: 15px; background: var(--terracotta); color: white; border: none; border-radius: 16px; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500; cursor: pointer; margin-top: 8px; }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-secondary { padding: 10px 20px; background: var(--warm-white); color: var(--text-dark); border: 1.5px solid rgba(61,43,31,0.10); border-radius: 12px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; }
+    .btn-group { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+    .card { background: var(--warm-white); border-radius: 14px; padding: 14px; box-shadow: 0 2px 8px var(--shadow-soft); margin-bottom: 8px; display: flex; gap: 10px; }
+    .card-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+    .card-body { flex: 1; min-width: 0; }
+    .card-title { font-size: 13px; font-weight: 600; color: var(--text-dark); margin-bottom: 4px; }
+    .card-detail { font-size: 11px; color: var(--text-light); line-height: 1.4; word-break: break-word; margin-bottom: 3px; }
+    .card-time { font-size: 10px; color: var(--text-light); margin-top: 4px; }
+    .card-actions { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+    .card-btn { font-size: 11px; background: none; border: none; color: var(--text-light); cursor: pointer; padding: 2px 4px; white-space: nowrap; }
+
+    .empty-state { background: var(--warm-white); border-radius: 16px; padding: 36px 20px; text-align: center; border: 1.5px dashed rgba(200,97,74,0.20); margin: 4px 0 20px; }
+    .empty-icon { font-size: 44px; margin-bottom: 10px; }
+    .empty-state p { color: var(--text-light); font-size: 13px; line-height: 1.6; }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--text-dark); color: white; padding: 10px 20px; border-radius: 20px; font-size: 13px; opacity: 0; pointer-events: none; transition: all 0.25s ease; z-index: 300; max-width: 90%; text-align: center; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(61,43,31,0.45); backdrop-filter: blur(4px); z-index: 200; display: flex; align-items: flex-end; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal-content { background: var(--warm-white); border-radius: 24px 24px 0 0; padding: 0 20px 32px; width: 100%; max-width: 480px; margin: 0 auto; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.32,0.72,0,1); max-height: 90vh; overflow-y: auto; }
+    .modal-overlay.open .modal-content { transform: translateY(0); }
+    .modal-handle { width: 36px; height: 4px; background: rgba(61,43,31,0.15); border-radius: 2px; margin: 12px auto 16px; }
+    .modal-title { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+
+    /* Idea form box (reused styling) */
+    .idea-form-box { background: var(--warm-white); border-radius: 14px; padding: 14px; margin-bottom: 16px; box-shadow: 0 2px 8px var(--shadow-soft); }
+    .idea-form-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-dark); }
+    .confidence-slider { display: flex; align-items: center; gap: 10px; }
+    .confidence-slider input { flex: 1; height: 6px; }
+    .confidence-display { width: 40px; text-align: center; font-size: 18px; font-weight: 600; color: var(--text-dark); }
+    .confidence-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-light); margin-top: 6px; }
+    .idea-card { border-left: 3px solid; }
+
+    /* Oura / Body cards */
+    .metric-card { background: var(--warm-white); border-radius: 16px; padding: 16px; box-shadow: 0 2px 8px var(--shadow-soft); margin-bottom: 16px; border-left: 4px solid var(--sky); }
+    .metric-card.body { border-left-color: var(--lavender); }
+    .metric-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .metric-header h3 { font-size: 14px; font-weight: 600; color: var(--text-dark); }
+    .metric-date { font-size: 10px; color: var(--text-light); }
+    .metric-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .metric-box { background: rgba(155,189,212,0.10); border-radius: 10px; padding: 10px; }
+    .metric-box.body-tint { background: rgba(196,181,212,0.12); }
+    .metric-value { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 600; color: var(--text-dark); }
+    .metric-label { font-size: 10px; color: var(--text-light); margin-top: 2px; }
+    .refresh-btn { font-size: 11px; color: var(--text-light); background: none; border: none; cursor: pointer; text-decoration: underline; }
+
+    .day-group-label { font-size: 11px; font-weight: 500; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.6px; margin: 16px 0 8px; }
+    .history-filters { display: flex; gap: 6px; margin-bottom: 16px; }
+    .filter-btn { padding: 6px 14px; font-size: 11px; font-weight: 500; border-radius: 12px; border: 1.5px solid rgba(61,43,31,0.10); background: white; cursor: pointer; color: var(--text-mid); }
+    .filter-btn.active { border-color: var(--terracotta); background: var(--terracotta); color: white; }
+  </style>
+</head>
+<body>
+
+<div class="bloom-app">
+  <header class="bloom-header">
+    <div class="header-top">
+      <div class="logo">Bl<em>oo</em>m</div>
+      <div class="sync-status"><span class="sync-dot" id="syncDot"></span><span id="syncText">Ready</span></div>
+    </div>
+  </header>
+
+  <main class="bloom-main">
+
+    <!-- LOG PAGE -->
+    <div class="page active" id="page-log">
+      <div class="form-section">
+        <h2 class="section-title">Quick Log</h2>
+        <div class="quick-add-grid" id="quickAddGrid"></div>
+
+        <div id="waterProgressCard"></div>
+
+        <h2 class="section-title" id="todayTitle">Today</h2>
+        <div id="todayEntries"></div>
+      </div>
+    </div>
+
+    <!-- IDEAS PAGE -->
+    <div class="page" id="page-ideas">
+      <div class="form-section">
+        <h2 class="section-title">Ideas to Explore</h2>
+        <div id="ideasForm"></div>
+        <div id="ideasList"></div>
+      </div>
+    </div>
+
+    <!-- HISTORY PAGE -->
+    <div class="page" id="page-history">
+      <div class="form-section">
+        <h2 class="section-title">History</h2>
+        <div class="history-filters">
+          <button class="filter-btn active" onclick="setHistoryRange(7, event)">7d</button>
+          <button class="filter-btn" onclick="setHistoryRange(14, event)">14d</button>
+          <button class="filter-btn" onclick="setHistoryRange(30, event)">30d</button>
+        </div>
+        <div id="historyList"></div>
+      </div>
+    </div>
+
+    <!-- SLEEP / BODY PAGE -->
+    <div class="page" id="page-sleep">
+      <div class="form-section">
+        <h2 class="section-title">Sleep &amp; Body</h2>
+
+        <div class="metric-card" id="ouraCard">
+          <div class="metric-header">
+            <h3>😴 Sleep (Oura)</h3>
+            <button class="refresh-btn" onclick="loadOuraData()">Refresh</button>
+          </div>
+          <div id="ouraContent">
+            <div class="empty-state" style="margin:0;"><div class="empty-icon">🌙</div><p>Loading...</p></div>
+          </div>
+        </div>
+
+        <div class="metric-card body" id="bodyCard">
+          <div class="metric-header">
+            <h3>⚖️ Body Metrics</h3>
+            <button class="refresh-btn" onclick="loadBodyMetrics()">Refresh</button>
+          </div>
+          <div id="bodyContent">
+            <div class="empty-state" style="margin:0;"><div class="empty-icon">📊</div><p>Loading...</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <nav class="bloom-nav">
+    <button class="nav-button active" onclick="switchPage('log', event)"><span class="nav-icon">📋</span><span>Log</span></button>
+    <button class="nav-button" onclick="switchPage('sleep', event)"><span class="nav-icon">😴</span><span>Sleep</span></button>
+    <button class="nav-button" onclick="switchPage('ideas', event)"><span class="nav-icon">💡</span><span>Ideas</span></button>
+    <button class="nav-button" onclick="switchPage('history', event)"><span class="nav-icon">📅</span><span>History</span></button>
+  </nav>
+
+  <div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this) closeForm()">
+    <div class="modal-content">
+      <div class="modal-handle"></div>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   STATE
+   ============================================================ */
+let entries = JSON.parse(localStorage.getItem('bloom_entries') || '[]');
+let hypotheses = JSON.parse(localStorage.getItem('bloom_hypotheses') || '[]');
+let editingHypothesisId = null;
+let editingEntryId = null;
+let selectedSources = [];
+let historyRange = 7;
+
+const SHEET_ID = '1tBPEKpxFnIHPFaQd4rLdCzln04zykKYdZeN6tgmpaqs';
+
+const categories = [
+  { id: 'food', name: 'Food & Drink', icon: '🥗', color: '#8BAF8D', hasTimes: true },
+  { id: 'water', name: 'Water', icon: '💧', color: '#9BBDD4', hasTimes: false },
+  { id: 'alcohol', name: 'Alcohol', icon: '🍷', color: '#D4A853', hasTimes: true },
+  { id: 'meds', name: 'Meds/Supps', icon: '💊', color: '#C4B5D4', hasTimes: false },
+  { id: 'bm', name: 'BM', icon: '🚽', color: '#B8976A', hasTimes: false },
+  { id: 'symptom', name: 'Symptom', icon: '🤒', color: '#E8927C', hasTimes: true },
+  { id: 'cycle', name: 'Cycle', icon: '🌸', color: '#B08090', hasTimes: false },
+  { id: 'exercise', name: 'Exercise', icon: '⚡', color: '#8BAF8D', hasTimes: true },
+  { id: 'sleep', name: 'Sleep', icon: '😴', color: '#9BBDD4', hasTimes: true },
+  { id: 'urination', name: 'Urination', icon: '🚻', color: '#B8976A', hasTimes: false },
+];
+
+function todayKey() { return new Date().toISOString().slice(0, 10); }
+function nowTime() { return new Date().toTimeString().slice(0, 5); }
+function uid() { return Date.now() + Math.floor(Math.random() * 1000); }
+
+/* ============================================================
+   INIT
+   ============================================================ */
+function init() {
+  renderQuickAdd();
+  renderTodayEntries();
+  renderWaterProgress();
+  renderIdeasPage();
+  loadOuraData();
+  loadBodyMetrics();
+}
+
+/* ============================================================
+   SYNC STATUS + API CALLS
+   ============================================================ */
+function setSyncStatus(state, text) {
+  const dot = document.getElementById('syncDot');
+  const label = document.getElementById('syncText');
+  dot.className = 'sync-dot' + (state === 'syncing' ? ' syncing' : state === 'error' ? ' error' : '');
+  label.textContent = text || (state === 'syncing' ? 'Syncing…' : state === 'error' ? 'Sync failed' : 'Synced');
+}
+
+async function syncEntryToSheet(entry) {
+  setSyncStatus('syncing');
+  try {
+    const res = await fetch('/api/sheets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'appendEntries', entries: [entry], sheetId: SHEET_ID })
+    });
+    if (!res.ok) throw new Error('bad status ' + res.status);
+    setSyncStatus('ok', 'Synced');
+  } catch (e) {
+    console.error('Sync error:', e);
+    setSyncStatus('error', 'Saved locally (sync failed)');
+  }
+}
+
+async function syncHypothesisToSheet(hyp) {
+  setSyncStatus('syncing');
+  try {
+    const res = await fetch('/api/sheets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'appendHypotheses', hypotheses: [hyp], sheetId: SHEET_ID })
+    });
+    if (!res.ok) throw new Error('bad status ' + res.status);
+    setSyncStatus('ok', 'Synced');
+  } catch (e) {
+    console.error('Sync error:', e);
+    setSyncStatus('error', 'Saved locally (sync failed)');
+  }
+}
+
+/* ============================================================
+   QUICK ADD GRID
+   ============================================================ */
+function renderQuickAdd() {
+  const grid = document.getElementById('quickAddGrid');
+  grid.innerHTML = categories.map(cat => `
+    <button class="quick-btn" style="border-color: ${cat.color};" onclick="openForm('${cat.id}')">
+      <span class="quick-btn-icon">${cat.icon}</span>
+      <span class="quick-btn-label">${cat.name.split(/[\\s/]/)[0]}</span>
+    </button>
+  `).join('');
+}
+
+/* ============================================================
+   WATER PROGRESS
+   ============================================================ */
+function getTodayWaterOz() {
+  return entries
+    .filter(e => e.category === 'water' && e.date === todayKey())
+    .reduce((sum, e) => sum + (parseFloat(e.detail) || 0), 0);
+}
+
+function renderWaterProgress() {
+  const total = getTodayWaterOz();
+  const goal = 64;
+  const pct = Math.min(100, Math.round((total / goal) * 100));
+  const container = document.getElementById('waterProgressCard');
+  if (total === 0) { container.innerHTML = ''; return; }
+  container.innerHTML = `
+    <div class="card" style="display:block; margin-bottom: 16px;">
+      <div class="card-title">💧 Water Today</div>
+      <div class="card-detail">${total} / ${goal} oz</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="progress-label">${pct}% of daily goal</div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   OPEN / CLOSE FORM (Quick Add Modal)
+   ============================================================ */
+function openForm(categoryId, existingEntry) {
+  editingEntryId = existingEntry ? existingEntry.id : null;
+  const cat = categories.find(c => c.id === categoryId);
+  const e = existingEntry || {};
+  const start = e.startTime || nowTime();
+  const end = e.endTime || '';
+
+  let fieldsHtml = '';
+
+  switch (categoryId) {
+    case 'food':
+      fieldsHtml = `
+        <div class="form-group">
+          <label class="form-label">What did you eat/drink?</label>
+          <input class="form-input" id="f_item" placeholder="e.g., Almonds, chicken salad..." value="${esc(e.item)}">
+        </div>`;
+      break;
+
+    case 'water':
+      fieldsHtml = `
+        <div class="form-group">
+          <label class="form-label">Ounces</label>
+          <input class="form-input" id="f_detail" type="number" inputmode="numeric" placeholder="e.g., 16" value="${e.detail || ''}">
+          <div class="quick-amount-row">
+            <button type="button" class="quick-amount-btn" onclick="setWaterAmount(8)">8 oz</button>
+            <button type="button" class="quick-amount-btn" onclick="setWaterAmount(16)">16 oz</button>
+            <button type="button" class="quick-amount-btn" onclick="setWaterAmount(24)">24 oz</button>
+            <button type="button" class="quick-amount-btn" onclick="setWaterAmount(32)">32 oz</button>
+          </div>
+        </div>`;
+      break;
+
+    case 'alcohol':
+      fieldsHtml = `
+        <div class="form-group">
+          <label class="form-label">What did you drink?</label>
+          <input class="form-input" id="f_item" placeholder="e.g., Glass of red wine" value="${esc(e.item)}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Servings</label>
+          <input class="form-input" id="f_detail" type="number" step="0.5" placeholder="e.g., 1" value="${e.detail || ''}">
+        </div>`;
+      break;
+
+    case 'meds':
+      fieldsHtml = `
+        <div class="form-group">
+          <label class="form-label">Name</label>
+          <input class="form-input" id="f_item" placeholder="e.g., Magnesium glycinate" value="${esc(e.item)}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Dose</label>
+          <input class="form-input" id="f_detail" placeholder="e.g., 400mg" value="${esc(e.detail)}">
+        </div>`;
+      break;
+
+    case 'bm': {
+      const selectedTypes = e.selectedPills?.bristol || [];
+      fieldsHtml = `
+        <div class="form-group">
+          <label class="form-label">Bristol Scale (select all that apply)</label>
+          <div class="pill-group" id="bristol_group">
+            ${[1,2,3,4,5,6,7].map(n => `<button type="button" class="pill-option ${selectedTypes.includes(n) ? 'selected' : ''}" data-val="${n}" onclick="this.classList.toggle('selected')">Type ${n}</button>`).join('')}
+          </div>
+        </div>`;
+      break;
+    }
+
+    case 'symptom':
+      fieldsHtml = `
+        <div class="form-group">
+          <label class="form-label">Symptom</label>
+          <input class="form-input" id="f_item" placeholder="e.g., Headache, bloating, fatigue..." value="${esc(e.item)}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Severity: <span id="sev_display">${e.severity || 5}</span>/10</label>
+          <input type="range" min="1" max="10" value="${e.severity || 5}" id="f_severity" class="form-input" style="height:6px;" oninput="document.getElementById('sev_display').textContent=this.value">
+        </div>`;
+      break;
+
+    case 'cycle': {
+      const selectedPhase = e.selectedPills?.phase || [];
+      const bcMethod = e.selectedPills?.bcMethod || '';
+      fieldsHtml = `
+        <div class="form-group">
+          <label class="form-label">Phase / Flow</label>
+          <div class="pill-group" id="cycle_phase_group">
+            ${['Period - Light','Period - Medium','Period - Heavy','Spotting','Ovulation'].map(p => `<button type="button" class="pill-option ${selectedPhase.includes(p) ? 'selected' : ''}" onclick="this.classList.toggle('selected')">${p}</button>`).join('')}
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Birth Control Method</label>
+          <select class="form-input" id="f_bc_method" onchange="togglePillFields(this.value)">
+            <option value="">None / Not applicable</option>
+            <option value="Pill" ${bcMethod === 'Pill' ? 'selected' : ''}>Pill</option>
+            <option value="IUD" ${bcMethod === 'IUD' ? 'selected' : ''}>IUD</option>
+            <option value="Implant" ${bcMethod === 'Implant' ? 'selected' : ''}>Implant</option>
+            <option value="None" ${bcMethod === 'None' ? 'selected' : ''}>None</option>
+          </select>
+        </div>
+        <div class="form-group" id="pillFieldsGroup" style="display:${bcMethod === 'Pill' ? 'block' : 'none'};">
+          <label class="form-label">Pill Name</label>
+          <input class="form-input" id="f_pill_name" placeholder="e.g., Sprintec" value="${esc(e.selectedPills?.pillName)}">
+          <label class="form-label" style="margin-top:10px;">First Day of Current Pack</label>
+          <input class="form-input" type="date" id="f_pack_start" value="${e.selectedPills?.packStart || ''}">
+        </div>`;
+      break;
+    }
+
+    case 'exercise':
+      fieldsHtml = `
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <input class="form-input" id="f_item" placeholder="e.g., Gym - upper body, Walk, Yoga..." value="${esc(e.item)}">
+        </div>`;
+      break;
+
+    case 'sleep':
+      fieldsHtml = `
+        <div class="form-group">
+          <label class="form-label">Quality: <span id="qual_display">${e.quality || 5}</span>/10</label>
+          <input type="range" min="1" max="10" value="${e.quality || 5}" id="f_quality" class="form-input" style="height:6px;" oninput="document.getElementById('qual_display').textContent=this.value">
+        </div>`;
+      break;
+
+    case 'urination':
+      fieldsHtml = `
+        <div class="form-group">
+          <label class="form-label">Notes (color, urgency, etc — optional)</label>
+        </div>`;
+      break;
+  }
+
+  let timingHtml = '';
+  if (cat.hasTimes) {
+    timingHtml = `
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Start Time</label>
+          <input type="time" class="form-input" id="f_start" value="${start}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">End Time (optional)</label>
+          <input type="time" class="form-input" id="f_end" value="${end}">
+        </div>
+      </div>`;
+  } else {
+    timingHtml = `
+      <div class="form-group">
+        <label class="form-label">Time</label>
+        <input type="time" class="form-input" id="f_start" value="${start}">
+      </div>`;
+  }
+
+  document.getElementById('modalContent').innerHTML = `
+    <div class="modal-title"><span>${cat.icon}</span> ${editingEntryId ? 'Edit' : 'Log'} ${cat.name}</div>
+    ${fieldsHtml}
+    ${timingHtml}
+    <div class="form-group">
+      <label class="form-label">Notes (optional)</label>
+      <textarea class="form-textarea" id="f_notes">${esc(e.notes)}</textarea>
+    </div>
+    <div class="btn-group">
+      <button class="btn-secondary" onclick="closeForm()">Cancel</button>
+      <button class="btn-primary" onclick="submitEntry('${categoryId}')" style="width:auto; flex:1;">${editingEntryId ? 'Save Changes' : 'Log It'}</button>
+    </div>
+  `;
+
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function togglePillFields(value) {
+  document.getElementById('pillFieldsGroup').style.display = value === 'Pill' ? 'block' : 'none';
+}
+
+function setWaterAmount(oz) {
+  document.getElementById('f_detail').value = oz;
+  document.querySelectorAll('.quick-amount-btn').forEach(b => b.classList.remove('selected'));
+  event.target.classList.add('selected');
+}
+
+function closeForm() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  editingEntryId = null;
+}
+
+function esc(str) {
+  if (str === undefined || str === null) return '';
+  return String(str).replace(/"/g, '&quot;');
+}
+
+/* ============================================================
+   SUBMIT / EDIT / DUPLICATE / DELETE ENTRY
+   ============================================================ */
+function submitEntry(categoryId) {
+  const cat = categories.find(c => c.id === categoryId);
+
+  const entry = {
+    id: editingEntryId || uid(),
+    date: todayKey(),
+    startTime: document.getElementById('f_start')?.value || nowTime(),
+    endTime: document.getElementById('f_end')?.value || null,
+    category: categoryId,
+    item: document.getElementById('f_item')?.value || '',
+    detail: document.getElementById('f_detail')?.value || '',
+    selectedPills: {},
+    severity: document.getElementById('f_severity')?.value || '',
+    quality: document.getElementById('f_quality')?.value || '',
+    notes: document.getElementById('f_notes')?.value || '',
+    createdAt: editingEntryId ? (entries.find(x => x.id === editingEntryId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
+  };
+
+  // Category-specific selections
+  if (categoryId === 'bm') {
+    const selected = [...document.querySelectorAll('#bristol_group .pill-option.selected')].map(b => parseInt(b.dataset.val));
+    entry.selectedPills = { bristol: selected };
+  }
+  if (categoryId === 'cycle') {
+    const selectedPhase = [...document.querySelectorAll('#cycle_phase_group .pill-option.selected')].map(b => b.textContent);
+    entry.selectedPills = {
+      phase: selectedPhase,
+      bcMethod: document.getElementById('f_bc_method')?.value || '',
+      pillName: document.getElementById('f_pill_name')?.value || '',
+      packStart: document.getElementById('f_pack_start')?.value || '',
+    };
+  }
+
+  // Preserve original date if editing an entry from a different day
+  if (editingEntryId) {
+    const existing = entries.find(x => x.id === editingEntryId);
+    if (existing) entry.date = existing.date;
+  }
+
+  if (editingEntryId) {
+    const idx = entries.findIndex(x => x.id === editingEntryId);
+    if (idx !== -1) entries[idx] = entry;
+    showToast('✓ Updated');
+  } else {
+    entries.unshift(entry);
+    showToast('✓ Logged');
+  }
+
+  localStorage.setItem('bloom_entries', JSON.stringify(entries));
+  closeForm();
+  renderTodayEntries();
+  renderWaterProgress();
+  if (document.getElementById('page-history').classList.contains('active')) renderHistory();
+
+  syncEntryToSheet(entry);
+}
+
+function editEntry(id) {
+  const entry = entries.find(e => e.id === id);
+  if (!entry) return;
+  openForm(entry.category, entry);
+}
+
+function duplicateEntry(id) {
+  const original = entries.find(e => e.id === id);
+  if (!original) return;
+  const copy = {
+    ...original,
+    id: uid(),
+    date: todayKey(),
+    startTime: nowTime(),
+    endTime: null,
+    createdAt: new Date().toISOString(),
+  };
+  entries.unshift(copy);
+  localStorage.setItem('bloom_entries', JSON.stringify(entries));
+  renderTodayEntries();
+  renderWaterProgress();
+  showToast('✓ Duplicated to today');
+  syncEntryToSheet(copy);
+}
+
+function deleteEntry(id) {
+  if (!confirm('Delete this entry?')) return;
+  entries = entries.filter(e => e.id !== id);
+  localStorage.setItem('bloom_entries', JSON.stringify(entries));
+  renderTodayEntries();
+  renderWaterProgress();
+  if (document.getElementById('page-history').classList.contains('active')) renderHistory();
+  showToast('✓ Deleted');
+}
+
+/* ============================================================
+   RENDER TODAY'S ENTRIES
+   ============================================================ */
+function describeEntry(e) {
+  const cat = categories.find(c => c.id === e.category);
+  switch (e.category) {
+    case 'food': return e.item || '—';
+    case 'water': return `${e.detail || 0} oz`;
+    case 'alcohol': return `${e.item || ''}${e.detail ? ' · ' + e.detail + ' serving(s)' : ''}`;
+    case 'meds': return `${e.item || ''}${e.detail ? ' · ' + e.detail : ''}`;
+    case 'bm': {
+      const types = e.selectedPills?.bristol || [];
+      return types.length ? 'Bristol: ' + types.map(t => 'Type ' + t).join(', ') : '—';
+    }
+    case 'symptom': return `${e.item || ''}${e.severity ? ' · severity ' + e.severity + '/10' : ''}`;
+    case 'cycle': {
+      const phase = (e.selectedPills?.phase || []).join(', ');
+      const bc = e.selectedPills?.bcMethod ? ' · BC: ' + e.selectedPills.bcMethod : '';
+      return (phase || '—') + bc;
+    }
+    case 'exercise': return e.item || '—';
+    case 'sleep': return e.quality ? `Quality ${e.quality}/10` : '—';
+    case 'urination': return e.notes ? '' : '—';
+    default: return e.notes || '—';
+  }
+}
+
+function formatTime(t) {
+  if (!t) return '';
+  const [h, m] = t.split(':');
+  const hour = parseInt(h);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const dh = hour % 12 || 12;
+  return `${dh}:${m} ${ampm}`;
+}
+
+function renderEntryCard(e) {
+  const cat = categories.find(c => c.id === e.category);
+  const desc = describeEntry(e);
+  const timeStr = e.endTime ? `${formatTime(e.startTime)} – ${formatTime(e.endTime)}` : formatTime(e.startTime);
+  return `
+    <div class="card">
+      <div class="card-icon" style="background: ${cat.color}30;">${cat.icon}</div>
+      <div class="card-body">
+        <div class="card-title">${cat.name}</div>
+        ${desc ? `<div class="card-detail">${desc}</div>` : ''}
+        ${e.notes ? `<div class="card-detail" style="font-style:italic;">${e.notes}</div>` : ''}
+        <div class="card-time">${timeStr}</div>
+      </div>
+      <div class="card-actions">
+        <button class="card-btn" onclick="editEntry(${e.id})">✏️ Edit</button>
+        <button class="card-btn" onclick="duplicateEntry(${e.id})">⧉ Copy</button>
+        <button class="card-btn" onclick="deleteEntry(${e.id})">✕ Del</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderTodayEntries() {
+  const today = todayKey();
+  const todayEntries = entries.filter(e => e.date === today).sort((a, b) => b.id - a.id);
+  const container = document.getElementById('todayEntries');
+  const title = document.getElementById('todayTitle');
+
+  title.innerHTML = `Today ${todayEntries.length > 0 ? `<em>${todayEntries.length} entr${todayEntries.length === 1 ? 'y' : 'ies'}</em>` : ''}`;
+
+  if (todayEntries.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">🌱</div><p>Nothing logged yet. Tap a category above to get started.</p></div>`;
+    return;
+  }
+
+  container.innerHTML = todayEntries.map(renderEntryCard).join('');
+}
+
+/* ============================================================
+   HISTORY PAGE
+   ============================================================ */
+function setHistoryRange(days, evt) {
+  historyRange = days;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  if (evt) evt.target.classList.add('active');
+  renderHistory();
+}
+
+function renderHistory() {
+  const container = document.getElementById('historyList');
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - historyRange);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+  const filtered = entries.filter(e => e.date >= cutoffStr).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.id - a.id));
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><p>No entries in this range yet.</p></div>`;
+    return;
+  }
+
+  const grouped = {};
+  filtered.forEach(e => {
+    if (!grouped[e.date]) grouped[e.date] = [];
+    grouped[e.date].push(e);
+  });
+
+  container.innerHTML = Object.keys(grouped).sort().reverse().map(date => `
+    <div class="day-group-label">${formatDateHeader(date)}</div>
+    ${grouped[date].map(renderEntryCard).join('')}
+  `).join('');
+}
+
+function formatDateHeader(d) {
+  const date = new Date(d + 'T12:00:00');
+  const today = todayKey();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yKey = yesterday.toISOString().slice(0, 10);
+
+  if (d === today) return 'Today';
+  if (d === yKey) return 'Yesterday';
+  return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+}
+
+/* ============================================================
+   IDEAS PAGE
+   ============================================================ */
+function renderIdeasPage() {
+  const formContainer = document.getElementById('ideasForm');
+  const listContainer = document.getElementById('ideasList');
+
+  formContainer.innerHTML = renderIdeaForm();
+
+  if (hypotheses.length === 0) {
+    listContainer.innerHTML = '<div class="empty-state"><div class="empty-icon">💭</div><p>No ideas yet. Add one above!</p></div>';
+    return;
+  }
+
+  listContainer.innerHTML = hypotheses
+    .sort((a, b) => b.userConfidence - a.userConfidence)
+    .map(h => `
+      <div class="card idea-card" style="border-left-color: ${getConfidenceColor(h.userConfidence)};">
+        <div class="card-body">
+          <div class="card-title">${h.hypothesis}</div>
+          <div class="card-detail"><strong>Your confidence:</strong> ${getConfidenceLabel(h.userConfidence)} (${h.userConfidence}/5)</div>
+          ${h.sources && h.sources.length > 0 ? `<div class="card-detail"><strong>Sources:</strong> ${h.sources.map(s => getSourceLabel(s)).join(', ')}</div>` : ''}
+          ${h.notes ? `<div class="card-detail" style="font-style: italic; margin-top: 6px;">"${h.notes}"</div>` : ''}
+          <div class="card-detail" style="font-size: 9px; margin-top: 6px;">
+            ${h.updatedAt ? `Updated ${new Date(h.updatedAt).toLocaleDateString()}` : `Added ${new Date(h.createdAt).toLocaleDateString()}`}
+          </div>
+        </div>
+        <div class="card-actions">
+          <button class="card-btn" onclick="editIdea(${h.id})">✏️ Edit</button>
+          <button class="card-btn" onclick="deleteIdea(${h.id})">✕ Delete</button>
+        </div>
+      </div>
+    `).join('');
+}
+
+function renderIdeaForm() {
+  if (editingHypothesisId) {
+    const h = hypotheses.find(hyp => hyp.id === editingHypothesisId);
+    selectedSources = h.sources || [];
+    return `
+      <div class="idea-form-box">
+        <div class="idea-form-title">✏️ Edit Idea</div>
+        <div class="form-group">
+          <label class="form-label">Hypothesis</label>
+          <textarea class="form-textarea" id="hyp_text" style="min-height: 60px;">${esc(h.hypothesis)}</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">How Confident Are You? (1-5)</label>
+          <div class="confidence-slider">
+            <input type="range" min="1" max="5" value="${h.userConfidence}" id="hyp_conf" class="form-input" style="height: 6px;">
+            <div class="confidence-display" id="conf_display">${h.userConfidence}</div>
+          </div>
+          <div class="confidence-labels"><span>Very Doubtful</span><span>Neutral</span><span>Very Confident</span></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Sources (select all that apply)</label>
+          <div class="pill-group">
+            <button type="button" class="pill-option ${h.sources?.includes('personal') ? 'selected' : ''}" onclick="toggleSource(this, 'personal')">💭 Personal</button>
+            <button type="button" class="pill-option ${h.sources?.includes('suggested') ? 'selected' : ''}" onclick="toggleSource(this, 'suggested')">💬 Suggested</button>
+            <button type="button" class="pill-option ${h.sources?.includes('diagnosed') ? 'selected' : ''}" onclick="toggleSource(this, 'diagnosed')">✅ Diagnosed</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notes or Context (optional)</label>
+          <textarea class="form-textarea" id="hyp_notes" style="min-height: 50px;">${esc(h.notes)}</textarea>
+        </div>
+        <div class="btn-group">
+          <button type="button" class="btn-secondary" onclick="cancelEdit()">Cancel</button>
+          <button type="button" class="btn-primary" onclick="saveIdea(true)" style="width: auto; flex: 1;">Save Changes</button>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="idea-form-box">
+      <div class="idea-form-title">💡 Add New Idea</div>
+      <div class="form-group">
+        <label class="form-label">Hypothesis or Suspicion</label>
+        <textarea class="form-textarea" id="hyp_text" placeholder="e.g., I think I have histamine intolerance..." style="min-height: 60px;"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">How Confident Are You? (1-5)</label>
+        <div class="confidence-slider">
+          <input type="range" min="1" max="5" value="3" id="hyp_conf" class="form-input" style="height: 6px;">
+          <div class="confidence-display" id="conf_display">3</div>
+        </div>
+        <div class="confidence-labels"><span>Very Doubtful</span><span>Neutral</span><span>Very Confident</span></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Sources (select all that apply)</label>
+        <div class="pill-group">
+          <button type="button" class="pill-option selected" onclick="toggleSource(this, 'personal')">💭 Personal</button>
+          <button type="button" class="pill-option" onclick="toggleSource(this, 'suggested')">💬 Suggested</button>
+          <button type="button" class="pill-option" onclick="toggleSource(this, 'diagnosed')">✅ Diagnosed</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes or Context (optional)</label>
+        <textarea class="form-textarea" id="hyp_notes" placeholder="e.g., My nutritionist mentioned this..."></textarea>
+      </div>
+      <div class="btn-group">
+        <button type="button" class="btn-secondary" onclick="resetForm()">Clear</button>
+        <button type="button" class="btn-primary" onclick="saveIdea(false)" style="width: auto; flex: 1;">Add Idea</button>
+      </div>
+    </div>
+  `;
+}
+
+function getConfidenceLabel(n) {
+  return { 1: 'Very Doubtful', 2: 'Somewhat Doubtful', 3: 'Neutral', 4: 'Somewhat Confident', 5: 'Very Confident' }[n] || 'Unknown';
+}
+function getConfidenceColor(n) {
+  if (n >= 4) return 'var(--sage)';
+  if (n === 3) return 'var(--gold)';
+  return 'var(--rose)';
+}
+function getSourceLabel(source) {
+  return { personal: '💭 Personal', suggested: '💬 Suggested', diagnosed: '✅ Diagnosed' }[source] || source;
+}
+
+function toggleSource(el, source) {
+  el.classList.toggle('selected');
+  if (selectedSources.includes(source)) selectedSources = selectedSources.filter(s => s !== source);
+  else selectedSources.push(source);
+}
+
+function saveIdea(isEditing) {
+  const text = document.getElementById('hyp_text')?.value || '';
+  const conf = parseInt(document.getElementById('hyp_conf')?.value) || 3;
+  const notes = document.getElementById('hyp_notes')?.value || '';
+
+  if (!text.trim()) { showToast('Please enter a hypothesis'); return; }
+  if (selectedSources.length === 0) { showToast('Please select at least one source'); return; }
+
+  let savedRecord;
+
+  if (isEditing && editingHypothesisId) {
+    const idx = hypotheses.findIndex(h => h.id === editingHypothesisId);
+    if (idx !== -1) {
+      hypotheses[idx] = { ...hypotheses[idx], hypothesis: text, userConfidence: conf, sources: selectedSources, notes, updatedAt: new Date().toISOString() };
+      savedRecord = hypotheses[idx];
+      editingHypothesisId = null;
+      showToast('✓ Idea updated');
+    }
+  } else {
+    savedRecord = { id: uid(), hypothesis: text, userConfidence: conf, sources: selectedSources, notes, createdAt: new Date().toISOString() };
+    hypotheses.unshift(savedRecord);
+    showToast('✓ Idea added');
+    resetForm();
+  }
+
+  localStorage.setItem('bloom_hypotheses', JSON.stringify(hypotheses));
+  renderIdeasPage();
+  selectedSources = [];
+
+  // Each save (create or edit) appends a row to the Hypotheses sheet,
+  // giving you a history of how your confidence changed over time.
+  if (savedRecord) syncHypothesisToSheet(savedRecord);
+}
+
+function editIdea(id) {
+  editingHypothesisId = id;
+  renderIdeasPage();
+  setTimeout(() => {
+    const slider = document.getElementById('hyp_conf');
+    if (slider) slider.addEventListener('input', e => document.getElementById('conf_display').textContent = e.target.value);
+  }, 50);
+}
+function cancelEdit() { editingHypothesisId = null; selectedSources = []; renderIdeasPage(); }
+function deleteIdea(id) {
+  if (!confirm('Delete this idea?')) return;
+  hypotheses = hypotheses.filter(h => h.id !== id);
+  localStorage.setItem('bloom_hypotheses', JSON.stringify(hypotheses));
+  renderIdeasPage();
+  showToast('✓ Deleted');
+}
+function resetForm() {
+  document.getElementById('hyp_text').value = '';
+  document.getElementById('hyp_conf').value = '3';
+  document.getElementById('hyp_notes').value = '';
+  document.getElementById('conf_display').textContent = '3';
+  document.querySelectorAll('#ideasForm .pill-option').forEach((b, i) => b.classList.toggle('selected', i === 0));
+  selectedSources = ['personal'];
+}
+
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'hyp_conf') document.getElementById('conf_display').textContent = e.target.value;
+});
+
+/* ============================================================
+   SLEEP / BODY DATA
+   ============================================================ */
+async function loadOuraData() {
+  const content = document.getElementById('ouraContent');
+  content.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">🌙</div><p>Loading...</p></div>`;
+  try {
+    const today = todayKey();
+    const res = await fetch(`/api/oura-expanded?action=all&date=${today}`);
+    const data = await res.json();
+
+    if (!data || (!data.sleep && !data.readiness)) {
+      content.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">🌙</div><p>No Oura data for today yet.</p></div>`;
+      return;
+    }
+
+    const sleep = data.sleep || {};
+    const readiness = data.readiness || {};
+
+    content.innerHTML = `
+      <div class="metric-date">${data.date || today}</div>
+      <div class="metric-grid" style="margin-top:8px;">
+        <div class="metric-box"><div class="metric-value">${sleep.hours ?? '—'}</div><div class="metric-label">Hours Slept</div></div>
+        <div class="metric-box"><div class="metric-value">${sleep.efficiency ? Math.round(sleep.efficiency * 100) + '%' : '—'}</div><div class="metric-label">Efficiency</div></div>
+        <div class="metric-box"><div class="metric-value">${readiness.readinessScore ?? '—'}</div><div class="metric-label">Readiness</div></div>
+        <div class="metric-box"><div class="metric-value">${readiness.restingHR ?? sleep.lowestHeartRate ?? '—'}</div><div class="metric-label">Resting HR</div></div>
+      </div>
+    `;
+  } catch (e) {
+    console.error('Oura load error:', e);
+    content.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">⚠️</div><p>Couldn't load Oura data.</p></div>`;
+  }
+}
+
+async function loadBodyMetrics() {
+  const content = document.getElementById('bodyContent');
+  content.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">📊</div><p>Loading...</p></div>`;
+  try {
+    const res = await fetch('/api/googlefit-sync?action=test&days=7');
+    const data = await res.json();
+
+    if (!data || !data.found) {
+      content.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">⚖️</div><p>${data?.message || 'No body metrics found yet.'}</p></div>`;
+      return;
+    }
+
+    content.innerHTML = `
+      <div class="metric-date">${data.date}</div>
+      <div class="metric-grid" style="margin-top:8px;">
+        <div class="metric-box body-tint"><div class="metric-value">${data.weight_kg != null ? data.weight_kg + ' kg' : '—'}</div><div class="metric-label">Weight</div></div>
+        <div class="metric-box body-tint"><div class="metric-value">${data.bodyfat_percent != null ? data.bodyfat_percent + '%' : '—'}</div><div class="metric-label">Body Fat</div></div>
+        <div class="metric-box body-tint"><div class="metric-value">${data.muscle_mass_kg != null ? data.muscle_mass_kg + ' kg' : '—'}</div><div class="metric-label">Muscle Mass</div></div>
+        <div class="metric-box body-tint"><div class="metric-value">${data.bone_mass_kg != null ? data.bone_mass_kg + ' kg' : '—'}</div><div class="metric-label">Bone Mass</div></div>
+      </div>
+    `;
+  } catch (e) {
+    console.error('Body metrics load error:', e);
+    content.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">⚠️</div><p>Couldn't load body metrics.</p></div>`;
+  }
+}
+
+/* ============================================================
+   NAVIGATION + TOAST
+   ============================================================ */
+function switchPage(page, evt) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-button').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  if (evt) evt.target.closest('.nav-button').classList.add('active');
+
+  if (page === 'history') renderHistory();
+  if (page === 'ideas') renderIdeasPage();
+  if (page === 'sleep') { loadOuraData(); loadBodyMetrics(); }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+init();
+</script>
+
+</body>
+</html>
