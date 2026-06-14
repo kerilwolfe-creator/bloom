@@ -1,7 +1,0 @@
-{
-  "name": "bloom",
-  "version": "1.0.0",
-  "dependencies": {
-    "googleapis": "^118.0.0"
-  }
-}
