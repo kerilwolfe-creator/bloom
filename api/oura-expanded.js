@@ -1,11 +1,15 @@
 // api/oura-expanded.js
 // Complete Oura Ring data fetching - sleep, readiness, activity, cycle
 
-const OURA_TOKEN = process.env.OURA_TOKEN || 'DYLKKDEMYOP2CMR5PQ53JHFX4R3LLY64';
+const OURA_TOKEN = process.env.OURA_TOKEN;
 const OURA_API = 'https://api.ouraring.com/v2';
 
 export default async function handler(req, res) {
   try {
+    if (!OURA_TOKEN) {
+      return res.status(500).json({ error: 'OURA_TOKEN not set in environment variables' });
+    }
+
     const { action, date } = req.query;
     
     if (action === 'all' && date) {
