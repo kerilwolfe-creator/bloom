@@ -3,9 +3,6 @@
 
 import { google } from 'googleapis';
 
-const fitness = google.fitness('v1');
-const sheets = google.sheets('v4');
-
 export default async function handler(req, res) {
   try {
     const { action } = req.query;
@@ -147,8 +144,21 @@ async function syncGoogleFitToSheet() {
     
     // Append to Google Sheet
     const sheetId = process.env.GOOGLE_SHEET_ID;
-    const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-    const serviceAccountKey = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY || '{}');
+    const rawKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+
+    if (!sheetId) {
+      throw new Error('GOOGLE_SHEET_ID not set in environment variables');
+    }
+    if (!rawKey) {
+      throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY not set in environment variables');
+    }
+
+    let serviceAccountKey;
+    try {
+      serviceAccountKey = JSON.parse(rawKey);
+    } catch (e) {
+      throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY is not valid JSON: ' + e.message);
+    }
 
     const auth = new google.auth.GoogleAuth({
       credentials: serviceAccountKey,
