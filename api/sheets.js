@@ -92,8 +92,14 @@ export default async function handler(req, res) {
           title: meta.data.properties?.title,
           tabs: meta.data.sheets?.map(s => s.properties.title)
         });
+      } else if (action === 'getEntries') {
+        const entries = await getEntries(sheetsApi, targetSheetId);
+        return res.status(200).json({ entries });
+      } else if (action === 'getHypotheses') {
+        const hypotheses = await getHypotheses(sheetsApi, targetSheetId);
+        return res.status(200).json({ hypotheses });
       } else {
-        return res.status(400).json({ error: 'Invalid action. Use ?action=getLastSync or ?action=ping' });
+        return res.status(400).json({ error: 'Invalid action. Use ?action=getLastSync, ping, getEntries, or getHypotheses' });
       }
 
     } else {
@@ -116,9 +122,12 @@ function columnLetter(n) {
   return s;
 }
 
-// Ensures the tab exists, and ensures row 1 has the given header - written
-// whenever A1 is empty, regardless of whether the tab is brand new or was
-// already there with no header (covers both cases).
+// Ensures the tab exists, and ensures row 1 exactly matches headerRow.
+// Previously this only wrote a header when A1 was completely empty - which
+// meant adding a new column (like EntryId, below) to an existing tab's
+// schema would never update its header row. Now it rewrites row 1 whenever
+// it doesn't match, which is harmless (it's our own managed header) and
+// keeps tabs created before a schema change in sync automatically.
 async function ensureTabAndHeader(sheetsApi, sheetId, tabName, headerRow) {
   const sheet = await sheetsApi.spreadsheets.get({ spreadsheetId: sheetId });
   const tabExists = (sheet.data.sheets || []).some(s => s.properties.title === tabName);
@@ -134,11 +143,13 @@ async function ensureTabAndHeader(sheetsApi, sheetId, tabName, headerRow) {
 
   const a1 = await sheetsApi.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: `${tabName}!A1`,
+    range: `${tabName}!A1:${columnLetter(headerRow.length)}1`,
   });
-  const hasHeader = !!(a1.data.values && a1.data.values[0] && a1.data.values[0][0]);
+  const currentHeader = (a1.data.values && a1.data.values[0]) || [];
+  const matches = headerRow.length === currentHeader.length &&
+    headerRow.every((h, i) => h === currentHeader[i]);
 
-  if (!hasHeader) {
+  if (!matches) {
     await sheetsApi.spreadsheets.values.update({
       spreadsheetId: sheetId,
       range: `${tabName}!A1`,
@@ -173,9 +184,13 @@ async function writeRowsAfterLastUsed(sheetsApi, sheetId, tabName, rows) {
 
 async function appendEntries(sheetsApi, sheetId, entries) {
   await ensureTabAndHeader(sheetsApi, sheetId, 'Entries', [
-    'Date', 'StartTime', 'EndTime', 'Category', 'Item', 'Detail', 'Pills', 'Severity', 'Quality', 'Notes', 'CreatedAt'
+    'Date', 'StartTime', 'EndTime', 'Category', 'Item', 'Detail', 'Pills', 'Severity', 'Quality', 'Notes', 'CreatedAt', 'EntryId'
   ]);
 
+  // EntryId (the app's local id for this entry) is appended as the last
+  // column. Editing an entry re-appends a new row with the SAME EntryId -
+  // getEntries() below uses this to find the latest version of each entry
+  // (last row with a given EntryId wins) when reading the sheet back.
   const rows = entries.map(e => [
     e.date,
     e.startTime,
@@ -188,6 +203,7 @@ async function appendEntries(sheetsApi, sheetId, entries) {
     e.quality ?? '',
     e.notes || '',
     e.createdAt,
+    e.id,
   ]);
 
   await writeRowsAfterLastUsed(sheetsApi, sheetId, 'Entries', rows);
@@ -195,9 +211,10 @@ async function appendEntries(sheetsApi, sheetId, entries) {
 
 async function appendHypotheses(sheetsApi, sheetId, hypotheses) {
   await ensureTabAndHeader(sheetsApi, sheetId, 'Hypotheses', [
-    'Hypothesis', 'UserConfidence', 'Sources', 'Notes', 'CreatedAt', 'AppConfidence'
+    'Hypothesis', 'UserConfidence', 'Sources', 'Notes', 'CreatedAt', 'AppConfidence', 'EntryId'
   ]);
 
+  // Same EntryId convention as Entries - see appendEntries for details.
   const rows = hypotheses.map(h => [
     h.hypothesis,
     h.userConfidence,
@@ -205,9 +222,102 @@ async function appendHypotheses(sheetsApi, sheetId, hypotheses) {
     h.notes || '',
     h.createdAt,
     h.appConfidence || '',
+    h.id,
   ]);
 
   await writeRowsAfterLastUsed(sheetsApi, sheetId, 'Hypotheses', rows);
+}
+
+// Reads the Entries tab back into entry objects matching the app's local
+// schema. Since the sheet is append-only and edits append a new row with
+// the same EntryId, this de-duplicates by EntryId - the LAST row with a
+// given EntryId (i.e. the most recent edit) wins. Rows without an EntryId
+// (written before this column existed) are skipped, since they can't be
+// matched back to a local entry reliably.
+async function getEntries(sheetsApi, sheetId) {
+  const tabExists = await tabExistsCheck(sheetsApi, sheetId, 'Entries');
+  if (!tabExists) return [];
+
+  const resp = await sheetsApi.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: 'Entries!A2:L',
+  });
+  const rows = resp.data.values || [];
+
+  const map = new Map();
+  for (const row of rows) {
+    const [date, startTime, endTime, category, item, detail, pills, severity, quality, notes, createdAt, entryId] = row;
+    if (!entryId) continue;
+
+    // Tombstone: a later row with category '__deleted__' means this entry
+    // was deleted after its last real sync. Remove it from the result
+    // rather than treating '__deleted__' as a real category.
+    if (category === '__deleted__') {
+      map.delete(entryId);
+      continue;
+    }
+
+    let selectedPills = {};
+    try { selectedPills = pills ? JSON.parse(pills) : {}; } catch { selectedPills = {}; }
+
+    map.set(entryId, {
+      id: isNaN(Number(entryId)) ? entryId : Number(entryId),
+      date,
+      startTime,
+      endTime: endTime || null,
+      category,
+      item: item || '',
+      detail: detail || '',
+      selectedPills,
+      severity: severity || '',
+      quality: quality || '',
+      notes: notes || '',
+      createdAt,
+    });
+  }
+
+  return Array.from(map.values());
+}
+
+// Same de-duplication strategy as getEntries, for the Hypotheses tab.
+async function getHypotheses(sheetsApi, sheetId) {
+  const tabExists = await tabExistsCheck(sheetsApi, sheetId, 'Hypotheses');
+  if (!tabExists) return [];
+
+  const resp = await sheetsApi.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: 'Hypotheses!A2:G',
+  });
+  const rows = resp.data.values || [];
+
+  const map = new Map();
+  for (const row of rows) {
+    const [hypothesis, userConfidence, sources, notes, createdAt, appConfidence, entryId] = row;
+    if (!entryId) continue;
+
+    // Tombstone - see getEntries for explanation.
+    if (hypothesis === '__deleted__') {
+      map.delete(entryId);
+      continue;
+    }
+
+    map.set(entryId, {
+      id: isNaN(Number(entryId)) ? entryId : Number(entryId),
+      hypothesis,
+      userConfidence: Number(userConfidence) || 0,
+      sources: sources ? sources.split(',').map(s => s.trim()).filter(Boolean) : [],
+      notes: notes || '',
+      createdAt,
+      appConfidence: appConfidence || '',
+    });
+  }
+
+  return Array.from(map.values());
+}
+
+async function tabExistsCheck(sheetsApi, sheetId, tabName) {
+  const sheet = await sheetsApi.spreadsheets.get({ spreadsheetId: sheetId });
+  return (sheet.data.sheets || []).some(s => s.properties.title === tabName);
 }
 
 async function getLastSyncTime(sheetsApi, sheetId) {
