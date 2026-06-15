@@ -2,6 +2,7 @@
 // Fetch Amazfit data from Google Fit and sync to Google Sheet
 
 import { google } from 'googleapis';
+import { requireAuth } from './_lib/auth.js';
 
 // Vercel servers run in UTC. You're in Central Time, so "today" on the
 // server can already be tomorrow for you (e.g. a 9pm Central weigh-in is
@@ -12,6 +13,19 @@ const TIMEZONE = process.env.APP_TIMEZONE || 'America/Chicago';
 export default async function handler(req, res) {
   try {
     const { action, days } = req.query;
+
+    if (action === 'sync') {
+      // Called by your AppsScript daily trigger, not the browser - it can't
+      // send the Bearer token from localStorage. Use a separate secret in
+      // the URL instead (set CRON_SECRET in Vercel, and add
+      // &key=<that value> to the AppsScript trigger's URL).
+      const cronSecret = process.env.CRON_SECRET;
+      if (!cronSecret || req.query.key !== cronSecret) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+    } else {
+      if (!requireAuth(req, res)) return;
+    }
 
     if (action === 'sync') {
       const result = await syncGoogleFitToSheet(parseInt(days) || 3);
