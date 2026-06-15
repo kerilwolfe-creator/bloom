@@ -548,17 +548,29 @@ async function loadFromSheet() {
     if (entriesRes.ok) {
       const data = await entriesRes.json();
       if (Array.isArray(data.entries)) {
+        console.log(`Loaded ${data.entries.length} entries from Sheet`);
         entries = mergeById(entries, data.entries);
         localStorage.setItem(PREFIX + 'entries', JSON.stringify(entries));
+      } else {
+        console.warn('getEntries response had no entries array:', data);
       }
+    } else {
+      const errBody = await entriesRes.text();
+      console.error(`getEntries failed (${entriesRes.status}):`, errBody);
     }
 
     if (hypRes.ok) {
       const data = await hypRes.json();
       if (Array.isArray(data.hypotheses)) {
+        console.log(`Loaded ${data.hypotheses.length} hypotheses from Sheet`);
         hypotheses = mergeById(hypotheses, data.hypotheses);
         localStorage.setItem(PREFIX + 'hypotheses', JSON.stringify(hypotheses));
+      } else {
+        console.warn('getHypotheses response had no hypotheses array:', data);
       }
+    } else {
+      const errBody = await hypRes.text();
+      console.error(`getHypotheses failed (${hypRes.status}):`, errBody);
     }
 
     // Re-render everything now that local state may have changed
