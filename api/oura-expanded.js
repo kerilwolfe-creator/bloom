@@ -1,8 +1,18 @@
 // api/oura-expanded.js
-// Complete Oura Ring data fetching - sleep, readiness, activity, cycle
+// Complete Oura Ring data fetching - uses the correct Oura v2 "usercollection"
+// endpoints (the previous version used /v2/usersession, which is for
+// meditation/breathing sessions, NOT sleep - that was the root cause of
+// sleep data never appearing).
 
 const OURA_TOKEN = process.env.OURA_TOKEN;
-const OURA_API = 'https://api.ouraring.com/v2';
+const OURA_API = 'https://api.ouraring.com/v2/usercollection';
+
+// Vercel servers run in UTC; the person using this app is in Central Time.
+// Oura's "day" field for a sleep period is the date the person woke up,
+// determined by the ring itself (already in the wearer's local time), so we
+// query a small window around the requested date and pick the most recent
+// entry to avoid off-by-one issues from server/client timezone differences.
+const TIMEZONE = process.env.APP_TIMEZONE || 'America/Chicago';
 
 export default async function handler(req, res) {
   try {
@@ -11,25 +21,57 @@ export default async function handler(req, res) {
     }
 
     const { action, date } = req.query;
-    
-    if (action === 'all' && date) {
-      // Fetch all data for a specific date
-      const allData = await fetchAllData(date);
-      res.status(200).json(allData);
-    } else if (action === 'sleep' && date) {
-      const sleep = await fetchSleepData(date);
+    const targetDate = date || toLocalDateString(Date.now());
+
+    if (action === 'all') {
+      const [sleep, readiness, dailySleepScore, activity] = await Promise.all([
+        fetchLatestSleepPeriod(targetDate),
+        fetchLatest('daily_readiness', targetDate),
+        fetchLatest('daily_sleep', targetDate),
+        fetchLatest('daily_activity', targetDate),
+      ]);
+
+      res.status(200).json({
+        date: targetDate,
+        sleep: sleep ? {
+          ...sleep,
+          score: dailySleepScore?.score ?? null,
+        } : (dailySleepScore ? { score: dailySleepScore.score, day: dailySleepScore.day } : null),
+        readiness: readiness ? {
+          readinessScore: readiness.score ?? null,
+          restingHR: readiness.contributors?.resting_heart_rate ?? null,
+          sleepBalance: readiness.contributors?.previous_night ?? null,
+          activityBalance: readiness.contributors?.activity_balance ?? null,
+          temperatureDeviation: readiness.temperature_deviation ?? null,
+          day: readiness.day,
+        } : null,
+        activity: activity ? {
+          score: activity.score ?? null,
+          steps: activity.steps ?? null,
+          activeCalories: activity.active_calories ?? null,
+          day: activity.day,
+        } : null,
+        syncedAt: new Date().toISOString(),
+      });
+    } else if (action === 'sleep') {
+      const sleep = await fetchLatestSleepPeriod(targetDate);
       res.status(200).json(sleep);
-    } else if (action === 'readiness' && date) {
-      const readiness = await fetchReadinessData(date);
+    } else if (action === 'readiness') {
+      const readiness = await fetchLatest('daily_readiness', targetDate);
       res.status(200).json(readiness);
-    } else if (action === 'activity' && date) {
-      const activity = await fetchActivityData(date);
-      res.status(200).json(activity);
-    } else if (action === 'cycle' && date) {
-      const cycle = await fetchCycleData(date);
-      res.status(200).json(cycle);
+    } else if (action === 'raw') {
+      // Debug helper: returns raw responses from each endpoint for a date range
+      const start = req.query.start || targetDate;
+      const end = req.query.end || targetDate;
+      const [sleep, dailySleep, readiness, activity] = await Promise.all([
+        ouraFetch(`/sleep?start_date=${start}&end_date=${end}`),
+        ouraFetch(`/daily_sleep?start_date=${start}&end_date=${end}`),
+        ouraFetch(`/daily_readiness?start_date=${start}&end_date=${end}`),
+        ouraFetch(`/daily_activity?start_date=${start}&end_date=${end}`),
+      ]);
+      res.status(200).json({ sleep, dailySleep, readiness, activity });
     } else {
-      res.status(400).json({ error: 'Invalid action or missing date' });
+      res.status(400).json({ error: 'Invalid action. Use ?action=all, sleep, readiness, or raw' });
     }
   } catch (error) {
     console.error('Oura API error:', error);
@@ -37,151 +79,66 @@ export default async function handler(req, res) {
   }
 }
 
-async function fetchAllData(date) {
-  try {
-    const sleep = await fetchSleepData(date);
-    const readiness = await fetchReadinessData(date);
-    const activity = await fetchActivityData(date);
-    const cycle = await fetchCycleData(date);
-    
-    return {
-      date,
-      sleep,
-      readiness,
-      activity,
-      cycle,
-      syncedAt: new Date().toISOString()
-    };
-  } catch (error) {
-    throw error;
-  }
+function toLocalDateString(millis) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit'
+  }).format(new Date(millis));
 }
 
-async function fetchSleepData(date) {
-  // /v2/usersession?date=2024-01-01&include_invisible=true
-  const response = await fetch(`${OURA_API}/usersession?date=${date}`, {
-    headers: { 'Authorization': `Bearer ${OURA_TOKEN}` }
-  });
-
-  if (!response.ok) {
-    throw new Error(`Oura API error: ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  
-  if (data.data && data.data.length > 0) {
-    const session = data.data[0];
-    return {
-      date,
-      type: session.type,
-      startTime: session.start_datetime,
-      endTime: session.end_datetime,
-      durationSeconds: session.duration,
-      hours: Math.round((session.duration / 3600) * 10) / 10,
-      deepSleepSeconds: session.deep_sleep_duration || 0,
-      deepSleepMinutes: Math.round((session.deep_sleep_duration || 0) / 60),
-      remSleepSeconds: session.rem_sleep_duration || 0,
-      remSleepMinutes: Math.round((session.rem_sleep_duration || 0) / 60),
-      lightSleepSeconds: session.light_sleep_duration || 0,
-      lightSleepMinutes: Math.round((session.light_sleep_duration || 0) / 60),
-      efficiency: session.efficiency || 0,
-      restfulness: session.restfulness || 0,
-      sleepLatencySeconds: session.sleep_latency || 0,
-      sleepLatencyMinutes: Math.round((session.sleep_latency || 0) / 60),
-      lowestHeartRate: session.lowest_heart_rate || 0,
-      averageHeartRate: session.average_heart_rate || 0,
-    };
-  }
-
-  return null;
+function addDays(dateStr, days) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
 }
 
-async function fetchReadinessData(date) {
-  // /v2/dailyreadiness?date=2024-01-01
-  const response = await fetch(`${OURA_API}/dailyreadiness?date=${date}`, {
+async function ouraFetch(path) {
+  const response = await fetch(`${OURA_API}${path}`, {
     headers: { 'Authorization': `Bearer ${OURA_TOKEN}` }
   });
-
   if (!response.ok) {
-    throw new Error(`Oura API error: ${response.statusText}`);
+    throw new Error(`Oura API error (${path}): ${response.status} ${response.statusText}`);
   }
-
-  const data = await response.json();
-
-  if (data.data && data.data.length > 0) {
-    const daily = data.data[0];
-    return {
-      date,
-      readinessScore: daily.score || 0,
-      sleepBalance: daily.score_sleep_balance || 0,
-      previousNightSleep: daily.score_previous_night || 0,
-      activityBalance: daily.score_activity_balance || 0,
-      restingHR: daily.resting_heart_rate || 0,
-      temperatureDeviation: daily.temperature_deviation || 0,
-      trend: daily.trend || null,
-      contributors: daily.contributors || []
-    };
-  }
-
-  return null;
+  return response.json();
 }
 
-async function fetchActivityData(date) {
-  // /v2/dailyactivity?date=2024-01-01
-  const response = await fetch(`${OURA_API}/dailyactivity?date=${date}`, {
-    headers: { 'Authorization': `Bearer ${OURA_TOKEN}` }
-  });
-
-  if (!response.ok) {
-    throw new Error(`Oura API error: ${response.statusText}`);
-  }
-
-  const data = await response.json();
-
-  if (data.data && data.data.length > 0) {
-    const activity = data.data[0];
-    return {
-      date,
-      score: activity.score || 0,
-      steps: activity.steps || 0,
-      caloriesBurned: activity.cal_burned || 0,
-      caloriesActive: activity.cal_active || 0,
-      activeSeconds: activity.active_burn_duration || 0,
-      activeMinutes: Math.round((activity.active_burn_duration || 0) / 60),
-      inactiveSeconds: activity.inactive_burn_duration || 0,
-      inactiveMinutes: Math.round((activity.inactive_burn_duration || 0) / 60),
-      avgMET: activity.average_met || 0,
-      contributors: activity.contributors || []
-    };
-  }
-
-  return null;
+// Fetch the most recent record from a daily_* endpoint within a small window
+// ending at targetDate (looks back 2 days to handle timezone edge cases).
+async function fetchLatest(endpoint, targetDate) {
+  const start = addDays(targetDate, -2);
+  const end = addDays(targetDate, 1);
+  const data = await ouraFetch(`/${endpoint}?start_date=${start}&end_date=${end}`);
+  const items = data.data || [];
+  if (items.length === 0) return null;
+  // Most recent by "day"
+  return items.reduce((latest, item) => (!latest || item.day > latest.day) ? item : latest, null);
 }
 
-async function fetchCycleData(date) {
-  // /v2/dailyspo2?date=2024-01-01 (has cycle info)
-  // Note: Cycle endpoint may be at a different path; check Oura docs
-  const response = await fetch(`${OURA_API}/dailyspo2?date=${date}`, {
-    headers: { 'Authorization': `Bearer ${OURA_TOKEN}` }
-  });
+// Fetch the most recent sleep PERIOD (from /sleep, has duration/deep/rem/etc.)
+async function fetchLatestSleepPeriod(targetDate) {
+  const start = addDays(targetDate, -2);
+  const end = addDays(targetDate, 1);
+  const data = await ouraFetch(`/sleep?start_date=${start}&end_date=${end}`);
+  const items = (data.data || []).filter(i => i.type === 'long_sleep' || i.type === 'sleep' || !i.type);
+  const list = items.length ? items : (data.data || []);
+  if (list.length === 0) return null;
 
-  if (!response.ok) {
-    // Cycle data may not be available; return null gracefully
-    return null;
-  }
+  const latest = list.reduce((best, item) => {
+    if (!best) return item;
+    return (item.bedtime_end || '') > (best.bedtime_end || '') ? item : best;
+  }, null);
 
-  const data = await response.json();
+  if (!latest) return null;
 
-  // Parse cycle info if available in response
-  // This is a placeholder - check Oura API for exact cycle endpoint
-  if (data.data && data.data.length > 0) {
-    return {
-      date,
-      cyclePhase: null, // Would come from cycle-specific endpoint
-      dayInCycle: null,
-      predictedNextPeriod: null
-    };
-  }
-
-  return null;
+  const totalSeconds = latest.total_sleep_duration || 0;
+  return {
+    day: latest.day,
+    hours: Math.round((totalSeconds / 3600) * 10) / 10,
+    efficiency: latest.efficiency ? latest.efficiency / 100 : null,
+    deepSleepMinutes: latest.deep_sleep_duration ? Math.round(latest.deep_sleep_duration / 60) : null,
+    remSleepMinutes: latest.rem_sleep_duration ? Math.round(latest.rem_sleep_duration / 60) : null,
+    lightSleepMinutes: latest.light_sleep_duration ? Math.round(latest.light_sleep_duration / 60) : null,
+    lowestHeartRate: latest.lowest_heart_rate ?? null,
+    averageHeartRate: latest.average_heart_rate ?? null,
+    latencyMinutes: latest.latency ? Math.round(latest.latency / 60) : null,
+  };
 }
