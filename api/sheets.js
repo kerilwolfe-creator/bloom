@@ -29,6 +29,7 @@
 // fixed on the next sync.
 
 import { google } from 'googleapis';
+import { requireAuth } from './_lib/auth.js';
 
 function getServiceAccountCredentials() {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
@@ -52,6 +53,8 @@ function getSheetsApi() {
 }
 
 export default async function handler(req, res) {
+  if (!requireAuth(req, res)) return;
+
   try {
     const sheetsApi = getSheetsApi();
     const defaultSheetId = process.env.GOOGLE_SHEET_ID;
