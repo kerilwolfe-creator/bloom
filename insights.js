@@ -14,6 +14,14 @@ import { google } from 'googleapis';
 const MODEL = 'claude-sonnet-4-6';
 const MAX_ENTRY_ROWS = 250; // cap how much log data we send, keeps prompt small/fast
 
+// This function reads from Google Sheets, calls the Claude API (which can
+// take 10-20+ seconds for this kind of analysis), and writes a log entry -
+// all in one request. Vercel's default serverless timeout is 10 seconds,
+// which isn't enough; on timeout Vercel returns an HTML error page instead
+// of JSON, which the frontend can't parse (shows as "couldn't reach the AI
+// Insights service"). Hobby plans allow up to 60s via this export.
+export const maxDuration = 60;
+
 export default async function handler(req, res) {
   try {
     if (req.method !== 'GET' && req.method !== 'POST') {
