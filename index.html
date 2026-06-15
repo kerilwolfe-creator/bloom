@@ -7,6 +7,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#F7EDE2">
   <title>Bloom — Health Journal</title>
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.json">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -45,6 +48,7 @@
       pointer-events: none; z-index: 0;
     }
     .bloom-app { display: flex; flex-direction: column; width: 100vw; min-height: 100vh; background: var(--cream); position: relative; z-index: 1; }
+    .demo-banner { background: var(--gold); color: var(--text-dark); text-align: center; font-size: 11px; font-weight: 600; padding: 6px 10px; letter-spacing: 0.4px; }
     .bloom-header { position: sticky; top: 0; z-index: 100; background: rgba(247,237,226,0.92); backdrop-filter: blur(12px); padding: 16px 20px 12px; border-bottom: 1px solid rgba(200,97,74,0.10); }
     .header-top { display: flex; align-items: center; justify-content: space-between; max-width: 480px; margin: 0 auto; width: 100%; }
     .logo { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 600; color: var(--terracotta); letter-spacing: -0.5px; }
@@ -57,19 +61,19 @@
 
     .bloom-main { flex: 1; overflow-y: auto; max-width: 480px; margin: 0 auto; width: 100%; padding-bottom: 100px; }
     .bloom-nav { position: fixed; bottom: 0; left: 0; right: 0; max-width: 480px; margin: 0 auto; height: 78px; background: rgba(247,237,226,0.96); backdrop-filter: blur(12px); border-top: 1px solid rgba(200,97,74,0.10); display: flex; align-items: center; justify-content: space-around; z-index: 100; padding: 6px 0 18px; }
-    .nav-button { display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; border: none; background: none; padding: 4px 12px; border-radius: 12px; color: var(--text-light); font-size: 9px; font-weight: 500; }
+    .nav-button { display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; border: none; background: none; padding: 4px 10px; border-radius: 12px; color: var(--text-light); font-size: 9px; font-weight: 500; }
     .nav-button.active { color: var(--terracotta); }
-    .nav-icon { font-size: 21px; }
+    .nav-icon { font-size: 20px; }
 
     .form-section { padding: 18px 16px; max-width: 480px; margin: 0 auto; width: 100%; }
-    .section-title { font-family: 'Playfair Display', serif; font-size: 18px; color: var(--text-dark); margin-bottom: 14px; font-weight: 600; }
+    .section-title { font-family: 'Playfair Display', serif; font-size: 18px; color: var(--text-dark); margin-bottom: 14px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; }
     .section-title em { font-style: italic; color: var(--text-light); font-weight: 400; font-size: 12px; margin-left: 6px; }
 
     .quick-add-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 24px; }
-    .quick-btn { padding: 12px 4px; border-radius: 14px; border: 2px solid; background: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; font-family: 'DM Sans', sans-serif; }
+    .quick-btn { padding: 12px 2px; border-radius: 14px; border: 2px solid; background: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; font-family: 'DM Sans', sans-serif; }
     .quick-btn:active { transform: scale(0.96); }
     .quick-btn-icon { font-size: 20px; }
-    .quick-btn-label { font-size: 9px; font-weight: 500; color: var(--text-mid); text-align: center; }
+    .quick-btn-label { font-size: 8.5px; font-weight: 500; color: var(--text-mid); text-align: center; line-height: 1.2; white-space: nowrap; }
 
     .form-group { margin-bottom: 16px; }
     .form-label { display: block; font-size: 11px; font-weight: 500; color: var(--text-mid); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
@@ -93,6 +97,7 @@
 
     .btn-primary { width: 100%; padding: 15px; background: var(--terracotta); color: white; border: none; border-radius: 16px; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500; cursor: pointer; margin-top: 8px; }
     .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.5; }
     .btn-secondary { padding: 10px 20px; background: var(--warm-white); color: var(--text-dark); border: 1.5px solid rgba(61,43,31,0.10); border-radius: 12px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; }
     .btn-group { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
 
@@ -115,7 +120,6 @@
     .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--text-dark); color: white; padding: 10px 20px; border-radius: 20px; font-size: 13px; opacity: 0; pointer-events: none; transition: all 0.25s ease; z-index: 300; max-width: 90%; text-align: center; }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-    /* Modal */
     .modal-overlay { position: fixed; inset: 0; background: rgba(61,43,31,0.45); backdrop-filter: blur(4px); z-index: 200; display: flex; align-items: flex-end; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; }
     .modal-overlay.open { opacity: 1; pointer-events: all; }
     .modal-content { background: var(--warm-white); border-radius: 24px 24px 0 0; padding: 0 20px 32px; width: 100%; max-width: 480px; margin: 0 auto; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.32,0.72,0,1); max-height: 90vh; overflow-y: auto; }
@@ -123,7 +127,6 @@
     .modal-handle { width: 36px; height: 4px; background: rgba(61,43,31,0.15); border-radius: 2px; margin: 12px auto 16px; }
     .modal-title { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
 
-    /* Idea form box (reused styling) */
     .idea-form-box { background: var(--warm-white); border-radius: 14px; padding: 14px; margin-bottom: 16px; box-shadow: 0 2px 8px var(--shadow-soft); }
     .idea-form-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-dark); }
     .confidence-slider { display: flex; align-items: center; gap: 10px; }
@@ -132,7 +135,6 @@
     .confidence-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-light); margin-top: 6px; }
     .idea-card { border-left: 3px solid; }
 
-    /* Oura / Body cards */
     .metric-card { background: var(--warm-white); border-radius: 16px; padding: 16px; box-shadow: 0 2px 8px var(--shadow-soft); margin-bottom: 16px; border-left: 4px solid var(--sky); }
     .metric-card.body { border-left-color: var(--lavender); }
     .metric-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
@@ -149,11 +151,30 @@
     .history-filters { display: flex; gap: 6px; margin-bottom: 16px; }
     .filter-btn { padding: 6px 14px; font-size: 11px; font-weight: 500; border-radius: 12px; border: 1.5px solid rgba(61,43,31,0.10); background: white; cursor: pointer; color: var(--text-mid); }
     .filter-btn.active { border-color: var(--terracotta); background: var(--terracotta); color: white; }
+
+    /* Insights */
+    .insight-card { background: var(--warm-white); border-radius: 14px; padding: 14px; margin-bottom: 12px; box-shadow: 0 2px 8px var(--shadow-soft); border-left: 3px solid; }
+    .insight-card.high { border-left-color: var(--sage); }
+    .insight-card.medium { border-left-color: var(--gold); }
+    .insight-card.low { border-left-color: var(--rose); }
+    .insight-badge { display: inline-block; font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 3px 8px; border-radius: 8px; margin-bottom: 6px; }
+    .insight-badge.refined { background: rgba(155,189,212,0.2); color: var(--text-mid); }
+    .insight-badge.new { background: rgba(212,168,83,0.25); color: var(--text-mid); }
+    .insight-title { font-size: 13px; font-weight: 600; color: var(--text-dark); margin-bottom: 6px; }
+    .insight-confidence-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .insight-bar-track { flex: 1; height: 6px; background: rgba(61,43,31,0.08); border-radius: 3px; overflow: hidden; }
+    .insight-bar-fill { height: 100%; background: linear-gradient(90deg, var(--rose), var(--gold), var(--sage)); }
+    .insight-confidence-num { font-size: 12px; font-weight: 600; color: var(--text-dark); min-width: 38px; text-align: right; }
+    .insight-evidence { font-size: 11px; color: var(--text-light); line-height: 1.5; }
+    .insight-meta { font-size: 9px; color: var(--text-light); margin-top: 6px; }
+    .insights-header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .insights-updated { font-size: 11px; color: var(--text-light); }
   </style>
 </head>
 <body>
 
 <div class="bloom-app">
+  <div class="demo-banner" id="demoBanner" style="display:none;">🎭 Demo Mode — sample data only, nothing here is saved or shared</div>
   <header class="bloom-header">
     <div class="header-top">
       <div class="logo">Bl<em>oo</em>m</div>
@@ -173,28 +194,6 @@
 
         <h2 class="section-title" id="todayTitle">Today</h2>
         <div id="todayEntries"></div>
-      </div>
-    </div>
-
-    <!-- IDEAS PAGE -->
-    <div class="page" id="page-ideas">
-      <div class="form-section">
-        <h2 class="section-title">Ideas to Explore</h2>
-        <div id="ideasForm"></div>
-        <div id="ideasList"></div>
-      </div>
-    </div>
-
-    <!-- HISTORY PAGE -->
-    <div class="page" id="page-history">
-      <div class="form-section">
-        <h2 class="section-title">History</h2>
-        <div class="history-filters">
-          <button class="filter-btn active" onclick="setHistoryRange(7, event)">7d</button>
-          <button class="filter-btn" onclick="setHistoryRange(14, event)">14d</button>
-          <button class="filter-btn" onclick="setHistoryRange(30, event)">30d</button>
-        </div>
-        <div id="historyList"></div>
       </div>
     </div>
 
@@ -225,11 +224,46 @@
       </div>
     </div>
 
+    <!-- INSIGHTS PAGE -->
+    <div class="page" id="page-insights">
+      <div class="form-section">
+        <div class="insights-header-row">
+          <h2 class="section-title" style="margin-bottom:0;">AI Insights</h2>
+          <button class="btn-secondary" id="analyzeBtn" onclick="loadInsights(true)">Analyze</button>
+        </div>
+        <div class="insights-updated" id="insightsUpdated"></div>
+        <div id="insightsList" style="margin-top:12px;"></div>
+      </div>
+    </div>
+
+    <!-- IDEAS PAGE -->
+    <div class="page" id="page-ideas">
+      <div class="form-section">
+        <h2 class="section-title">Ideas to Explore</h2>
+        <div id="ideasForm"></div>
+        <div id="ideasList"></div>
+      </div>
+    </div>
+
+    <!-- HISTORY PAGE -->
+    <div class="page" id="page-history">
+      <div class="form-section">
+        <h2 class="section-title">History</h2>
+        <div class="history-filters">
+          <button class="filter-btn active" onclick="setHistoryRange(7, event)">7d</button>
+          <button class="filter-btn" onclick="setHistoryRange(14, event)">14d</button>
+          <button class="filter-btn" onclick="setHistoryRange(30, event)">30d</button>
+        </div>
+        <div id="historyList"></div>
+      </div>
+    </div>
+
   </main>
 
   <nav class="bloom-nav">
     <button class="nav-button active" onclick="switchPage('log', event)"><span class="nav-icon">📋</span><span>Log</span></button>
     <button class="nav-button" onclick="switchPage('sleep', event)"><span class="nav-icon">😴</span><span>Sleep</span></button>
+    <button class="nav-button" onclick="switchPage('insights', event)"><span class="nav-icon">✨</span><span>Insights</span></button>
     <button class="nav-button" onclick="switchPage('ideas', event)"><span class="nav-icon">💡</span><span>Ideas</span></button>
     <button class="nav-button" onclick="switchPage('history', event)"><span class="nav-icon">📅</span><span>History</span></button>
   </nav>
@@ -246,44 +280,86 @@
 
 <script>
 /* ============================================================
+   DEMO MODE
+   ============================================================ */
+const DEMO_MODE = new URLSearchParams(location.search).get('demo') === '1';
+const PREFIX = DEMO_MODE ? 'bloom_demo_' : 'bloom_';
+
+/* ============================================================
    STATE
    ============================================================ */
-let entries = JSON.parse(localStorage.getItem('bloom_entries') || '[]');
-let hypotheses = JSON.parse(localStorage.getItem('bloom_hypotheses') || '[]');
+let entries = JSON.parse(localStorage.getItem(PREFIX + 'entries') || '[]');
+let hypotheses = JSON.parse(localStorage.getItem(PREFIX + 'hypotheses') || '[]');
+let insightsCache = JSON.parse(localStorage.getItem(PREFIX + 'insights') || 'null');
 let editingHypothesisId = null;
 let editingEntryId = null;
 let selectedSources = [];
 let historyRange = 7;
 
 const SHEET_ID = '1tBPEKpxFnIHPFaQd4rLdCzln04zykKYdZeN6tgmpaqs';
+const KG_TO_LBS = 2.20462;
 
 const categories = [
-  { id: 'food', name: 'Food & Drink', icon: '🥗', color: '#8BAF8D', hasTimes: true },
-  { id: 'water', name: 'Water', icon: '💧', color: '#9BBDD4', hasTimes: false },
-  { id: 'alcohol', name: 'Alcohol', icon: '🍷', color: '#D4A853', hasTimes: true },
-  { id: 'meds', name: 'Meds/Supps', icon: '💊', color: '#C4B5D4', hasTimes: false },
-  { id: 'bm', name: 'BM', icon: '🚽', color: '#B8976A', hasTimes: false },
-  { id: 'symptom', name: 'Symptom', icon: '🤒', color: '#E8927C', hasTimes: true },
-  { id: 'cycle', name: 'Cycle', icon: '🌸', color: '#B08090', hasTimes: false },
-  { id: 'exercise', name: 'Exercise', icon: '⚡', color: '#8BAF8D', hasTimes: true },
-  { id: 'sleep', name: 'Sleep', icon: '😴', color: '#9BBDD4', hasTimes: true },
-  { id: 'urination', name: 'Urination', icon: '🚻', color: '#B8976A', hasTimes: false },
+  { id: 'food', name: 'Food & Drink', short: 'Food', icon: '🥗', color: '#8BAF8D', hasTimes: true },
+  { id: 'water', name: 'Water', short: 'Water', icon: '💧', color: '#9BBDD4', hasTimes: false },
+  { id: 'alcohol', name: 'Alcohol', short: 'Alcohol', icon: '🍷', color: '#D4A853', hasTimes: true },
+  { id: 'meds', name: 'Meds & Supplements', short: 'Meds', icon: '💊', color: '#C4B5D4', hasTimes: false },
+  { id: 'bm', name: 'BM', short: 'BM', icon: '🚽', color: '#B8976A', hasTimes: false },
+  { id: 'symptom', name: 'Symptom', short: 'Symptom', icon: '🤒', color: '#E8927C', hasTimes: true },
+  { id: 'cycle', name: 'Cycle', short: 'Cycle', icon: '🌸', color: '#B08090', hasTimes: false },
+  { id: 'exercise', name: 'Exercise', short: 'Exercise', icon: '⚡', color: '#8BAF8D', hasTimes: true },
+  { id: 'sleep', name: 'Sleep', short: 'Sleep', icon: '😴', color: '#9BBDD4', hasTimes: true },
+  { id: 'urination', name: 'Urination', short: 'Urination', icon: '🚻', color: '#B8976A', hasTimes: false },
 ];
 
-function todayKey() { return new Date().toISOString().slice(0, 10); }
+// Local-time date key (NOT UTC) - fixes "today" bucketing issues for anyone
+// not in UTC. new Date().toISOString() converts to UTC, which can put
+// evening entries under tomorrow's date depending on timezone.
+function todayKey() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
 function nowTime() { return new Date().toTimeString().slice(0, 5); }
 function uid() { return Date.now() + Math.floor(Math.random() * 1000); }
+
+// Sort key for chronological ordering by the entry's own date+time
+// (not by when it was created/edited) - fixes entries sorting by entry order.
+function entryDateTimeKey(e) {
+  return `${e.date} ${e.startTime || '00:00'}`;
+}
+function sortEntriesDesc(arr) {
+  return arr.slice().sort((a, b) => {
+    const cmp = entryDateTimeKey(b).localeCompare(entryDateTimeKey(a));
+    return cmp !== 0 ? cmp : (b.id || 0) - (a.id || 0);
+  });
+}
 
 /* ============================================================
    INIT
    ============================================================ */
 function init() {
+  if (DEMO_MODE) {
+    document.getElementById('demoBanner').style.display = 'block';
+    if (entries.length === 0 && hypotheses.length === 0) seedDemoData();
+  }
+
   renderQuickAdd();
   renderTodayEntries();
   renderWaterProgress();
   renderIdeasPage();
-  loadOuraData();
-  loadBodyMetrics();
+  renderInsights();
+
+  if (DEMO_MODE) {
+    showDemoOura();
+    showDemoBodyMetrics();
+    setSyncStatus('ok', 'Demo Mode');
+  } else {
+    loadOuraData();
+    loadBodyMetrics();
+  }
 }
 
 /* ============================================================
@@ -296,7 +372,25 @@ function setSyncStatus(state, text) {
   label.textContent = text || (state === 'syncing' ? 'Syncing…' : state === 'error' ? 'Sync failed' : 'Synced');
 }
 
+async function handleSyncResponse(res, label) {
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const body = await res.json();
+      detail = body.error || body.details || JSON.stringify(body);
+    } catch {
+      detail = await res.text().catch(() => '');
+    }
+    console.error(`${label} sync failed (${res.status}):`, detail);
+    setSyncStatus('error', 'Saved locally (sync failed)');
+    return false;
+  }
+  setSyncStatus('ok', 'Synced');
+  return true;
+}
+
 async function syncEntryToSheet(entry) {
+  if (DEMO_MODE) return;
   setSyncStatus('syncing');
   try {
     const res = await fetch('/api/sheets', {
@@ -304,15 +398,15 @@ async function syncEntryToSheet(entry) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'appendEntries', entries: [entry], sheetId: SHEET_ID })
     });
-    if (!res.ok) throw new Error('bad status ' + res.status);
-    setSyncStatus('ok', 'Synced');
+    await handleSyncResponse(res, 'Entry');
   } catch (e) {
-    console.error('Sync error:', e);
-    setSyncStatus('error', 'Saved locally (sync failed)');
+    console.error('Sync network error:', e);
+    setSyncStatus('error', 'Saved locally (offline?)');
   }
 }
 
 async function syncHypothesisToSheet(hyp) {
+  if (DEMO_MODE) return;
   setSyncStatus('syncing');
   try {
     const res = await fetch('/api/sheets', {
@@ -320,11 +414,10 @@ async function syncHypothesisToSheet(hyp) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'appendHypotheses', hypotheses: [hyp], sheetId: SHEET_ID })
     });
-    if (!res.ok) throw new Error('bad status ' + res.status);
-    setSyncStatus('ok', 'Synced');
+    await handleSyncResponse(res, 'Idea');
   } catch (e) {
-    console.error('Sync error:', e);
-    setSyncStatus('error', 'Saved locally (sync failed)');
+    console.error('Sync network error:', e);
+    setSyncStatus('error', 'Saved locally (offline?)');
   }
 }
 
@@ -336,7 +429,7 @@ function renderQuickAdd() {
   grid.innerHTML = categories.map(cat => `
     <button class="quick-btn" style="border-color: ${cat.color};" onclick="openForm('${cat.id}')">
       <span class="quick-btn-icon">${cat.icon}</span>
-      <span class="quick-btn-label">${cat.name.split(/[\\s/]/)[0]}</span>
+      <span class="quick-btn-label">${cat.short}</span>
     </button>
   `).join('');
 }
@@ -375,6 +468,7 @@ function openForm(categoryId, existingEntry) {
   const e = existingEntry || {};
   const start = e.startTime || nowTime();
   const end = e.endTime || '';
+  const entryDate = e.date || todayKey();
 
   let fieldsHtml = '';
 
@@ -391,7 +485,7 @@ function openForm(categoryId, existingEntry) {
       fieldsHtml = `
         <div class="form-group">
           <label class="form-label">Ounces</label>
-          <input class="form-input" id="f_detail" type="number" inputmode="numeric" placeholder="e.g., 16" value="${e.detail || ''}">
+          <input class="form-input" id="f_detail" type="number" inputmode="numeric" placeholder="e.g., 16" value="${esc(e.detail)}">
           <div class="quick-amount-row">
             <button type="button" class="quick-amount-btn" onclick="setWaterAmount(8)">8 oz</button>
             <button type="button" class="quick-amount-btn" onclick="setWaterAmount(16)">16 oz</button>
@@ -409,7 +503,7 @@ function openForm(categoryId, existingEntry) {
         </div>
         <div class="form-group">
           <label class="form-label">Servings</label>
-          <input class="form-input" id="f_detail" type="number" step="0.5" placeholder="e.g., 1" value="${e.detail || ''}">
+          <input class="form-input" id="f_detail" type="number" step="0.5" placeholder="e.g., 1" value="${esc(e.detail)}">
         </div>`;
       break;
 
@@ -444,8 +538,10 @@ function openForm(categoryId, existingEntry) {
           <input class="form-input" id="f_item" placeholder="e.g., Headache, bloating, fatigue..." value="${esc(e.item)}">
         </div>
         <div class="form-group">
-          <label class="form-label">Severity: <span id="sev_display">${e.severity || 5}</span>/10</label>
-          <input type="range" min="1" max="10" value="${e.severity || 5}" id="f_severity" class="form-input" style="height:6px;" oninput="document.getElementById('sev_display').textContent=this.value">
+          <label class="form-label">Severity: <span id="sev_display">${e.severity ?? 5}</span>/10</label>
+          <input type="range" min="1" max="10" step="1" value="${e.severity ?? 5}" id="f_severity" class="form-input" style="height:6px;"
+                 oninput="document.getElementById('sev_display').textContent=this.value"
+                 onchange="document.getElementById('sev_display').textContent=this.value">
         </div>`;
       break;
 
@@ -489,16 +585,15 @@ function openForm(categoryId, existingEntry) {
     case 'sleep':
       fieldsHtml = `
         <div class="form-group">
-          <label class="form-label">Quality: <span id="qual_display">${e.quality || 5}</span>/10</label>
-          <input type="range" min="1" max="10" value="${e.quality || 5}" id="f_quality" class="form-input" style="height:6px;" oninput="document.getElementById('qual_display').textContent=this.value">
+          <label class="form-label">Quality: <span id="qual_display">${e.quality ?? 5}</span>/10</label>
+          <input type="range" min="1" max="10" step="1" value="${e.quality ?? 5}" id="f_quality" class="form-input" style="height:6px;"
+                 oninput="document.getElementById('qual_display').textContent=this.value"
+                 onchange="document.getElementById('qual_display').textContent=this.value">
         </div>`;
       break;
 
     case 'urination':
-      fieldsHtml = `
-        <div class="form-group">
-          <label class="form-label">Notes (color, urgency, etc — optional)</label>
-        </div>`;
+      fieldsHtml = `<div class="form-group"><label class="form-label">Notes (color, urgency, etc — optional below)</label></div>`;
       break;
   }
 
@@ -525,6 +620,10 @@ function openForm(categoryId, existingEntry) {
 
   document.getElementById('modalContent').innerHTML = `
     <div class="modal-title"><span>${cat.icon}</span> ${editingEntryId ? 'Edit' : 'Log'} ${cat.name}</div>
+    <div class="form-group">
+      <label class="form-label">Date</label>
+      <input type="date" class="form-input" id="f_date" value="${entryDate}" max="${todayKey()}">
+    </div>
     ${fieldsHtml}
     ${timingHtml}
     <div class="form-group">
@@ -566,22 +665,24 @@ function esc(str) {
 function submitEntry(categoryId) {
   const cat = categories.find(c => c.id === categoryId);
 
+  const severityRaw = document.getElementById('f_severity')?.value;
+  const qualityRaw = document.getElementById('f_quality')?.value;
+
   const entry = {
     id: editingEntryId || uid(),
-    date: todayKey(),
+    date: document.getElementById('f_date')?.value || todayKey(),
     startTime: document.getElementById('f_start')?.value || nowTime(),
     endTime: document.getElementById('f_end')?.value || null,
     category: categoryId,
     item: document.getElementById('f_item')?.value || '',
     detail: document.getElementById('f_detail')?.value || '',
     selectedPills: {},
-    severity: document.getElementById('f_severity')?.value || '',
-    quality: document.getElementById('f_quality')?.value || '',
+    severity: severityRaw !== undefined ? parseInt(severityRaw, 10) : '',
+    quality: qualityRaw !== undefined ? parseInt(qualityRaw, 10) : '',
     notes: document.getElementById('f_notes')?.value || '',
     createdAt: editingEntryId ? (entries.find(x => x.id === editingEntryId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
   };
 
-  // Category-specific selections
   if (categoryId === 'bm') {
     const selected = [...document.querySelectorAll('#bristol_group .pill-option.selected')].map(b => parseInt(b.dataset.val));
     entry.selectedPills = { bristol: selected };
@@ -596,12 +697,6 @@ function submitEntry(categoryId) {
     };
   }
 
-  // Preserve original date if editing an entry from a different day
-  if (editingEntryId) {
-    const existing = entries.find(x => x.id === editingEntryId);
-    if (existing) entry.date = existing.date;
-  }
-
   if (editingEntryId) {
     const idx = entries.findIndex(x => x.id === editingEntryId);
     if (idx !== -1) entries[idx] = entry;
@@ -611,7 +706,7 @@ function submitEntry(categoryId) {
     showToast('✓ Logged');
   }
 
-  localStorage.setItem('bloom_entries', JSON.stringify(entries));
+  localStorage.setItem(PREFIX + 'entries', JSON.stringify(entries));
   closeForm();
   renderTodayEntries();
   renderWaterProgress();
@@ -638,7 +733,7 @@ function duplicateEntry(id) {
     createdAt: new Date().toISOString(),
   };
   entries.unshift(copy);
-  localStorage.setItem('bloom_entries', JSON.stringify(entries));
+  localStorage.setItem(PREFIX + 'entries', JSON.stringify(entries));
   renderTodayEntries();
   renderWaterProgress();
   showToast('✓ Duplicated to today');
@@ -648,7 +743,7 @@ function duplicateEntry(id) {
 function deleteEntry(id) {
   if (!confirm('Delete this entry?')) return;
   entries = entries.filter(e => e.id !== id);
-  localStorage.setItem('bloom_entries', JSON.stringify(entries));
+  localStorage.setItem(PREFIX + 'entries', JSON.stringify(entries));
   renderTodayEntries();
   renderWaterProgress();
   if (document.getElementById('page-history').classList.contains('active')) renderHistory();
@@ -656,10 +751,9 @@ function deleteEntry(id) {
 }
 
 /* ============================================================
-   RENDER TODAY'S ENTRIES
+   RENDER ENTRIES
    ============================================================ */
 function describeEntry(e) {
-  const cat = categories.find(c => c.id === e.category);
   switch (e.category) {
     case 'food': return e.item || '—';
     case 'water': return `${e.detail || 0} oz`;
@@ -669,14 +763,14 @@ function describeEntry(e) {
       const types = e.selectedPills?.bristol || [];
       return types.length ? 'Bristol: ' + types.map(t => 'Type ' + t).join(', ') : '—';
     }
-    case 'symptom': return `${e.item || ''}${e.severity ? ' · severity ' + e.severity + '/10' : ''}`;
+    case 'symptom': return `${e.item || ''}${(e.severity !== '' && e.severity != null) ? ' · severity ' + e.severity + '/10' : ''}`;
     case 'cycle': {
       const phase = (e.selectedPills?.phase || []).join(', ');
       const bc = e.selectedPills?.bcMethod ? ' · BC: ' + e.selectedPills.bcMethod : '';
       return (phase || '—') + bc;
     }
     case 'exercise': return e.item || '—';
-    case 'sleep': return e.quality ? `Quality ${e.quality}/10` : '—';
+    case 'sleep': return (e.quality !== '' && e.quality != null) ? `Quality ${e.quality}/10` : '—';
     case 'urination': return e.notes ? '' : '—';
     default: return e.notes || '—';
   }
@@ -715,7 +809,7 @@ function renderEntryCard(e) {
 
 function renderTodayEntries() {
   const today = todayKey();
-  const todayEntries = entries.filter(e => e.date === today).sort((a, b) => b.id - a.id);
+  const todayEntries = sortEntriesDesc(entries.filter(e => e.date === today));
   const container = document.getElementById('todayEntries');
   const title = document.getElementById('todayTitle');
 
@@ -743,9 +837,9 @@ function renderHistory() {
   const container = document.getElementById('historyList');
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - historyRange);
-  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const cutoffStr = `${cutoff.getFullYear()}-${String(cutoff.getMonth()+1).padStart(2,'0')}-${String(cutoff.getDate()).padStart(2,'0')}`;
 
-  const filtered = entries.filter(e => e.date >= cutoffStr).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.id - a.id));
+  const filtered = entries.filter(e => e.date >= cutoffStr);
 
   if (filtered.length === 0) {
     container.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><p>No entries in this range yet.</p></div>`;
@@ -760,7 +854,7 @@ function renderHistory() {
 
   container.innerHTML = Object.keys(grouped).sort().reverse().map(date => `
     <div class="day-group-label">${formatDateHeader(date)}</div>
-    ${grouped[date].map(renderEntryCard).join('')}
+    ${sortEntriesDesc(grouped[date]).map(renderEntryCard).join('')}
   `).join('');
 }
 
@@ -769,7 +863,7 @@ function formatDateHeader(d) {
   const today = todayKey();
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-  const yKey = yesterday.toISOString().slice(0, 10);
+  const yKey = `${yesterday.getFullYear()}-${String(yesterday.getMonth()+1).padStart(2,'0')}-${String(yesterday.getDate()).padStart(2,'0')}`;
 
   if (d === today) return 'Today';
   if (d === yKey) return 'Yesterday';
@@ -928,12 +1022,10 @@ function saveIdea(isEditing) {
     resetForm();
   }
 
-  localStorage.setItem('bloom_hypotheses', JSON.stringify(hypotheses));
+  localStorage.setItem(PREFIX + 'hypotheses', JSON.stringify(hypotheses));
   renderIdeasPage();
   selectedSources = [];
 
-  // Each save (create or edit) appends a row to the Hypotheses sheet,
-  // giving you a history of how your confidence changed over time.
   if (savedRecord) syncHypothesisToSheet(savedRecord);
 }
 
@@ -949,7 +1041,7 @@ function cancelEdit() { editingHypothesisId = null; selectedSources = []; render
 function deleteIdea(id) {
   if (!confirm('Delete this idea?')) return;
   hypotheses = hypotheses.filter(h => h.id !== id);
-  localStorage.setItem('bloom_hypotheses', JSON.stringify(hypotheses));
+  localStorage.setItem(PREFIX + 'hypotheses', JSON.stringify(hypotheses));
   renderIdeasPage();
   showToast('✓ Deleted');
 }
@@ -967,31 +1059,37 @@ document.addEventListener('input', (e) => {
 });
 
 /* ============================================================
-   SLEEP / BODY DATA
+   SLEEP / BODY DATA  (real APIs)
    ============================================================ */
 async function loadOuraData() {
   const content = document.getElementById('ouraContent');
   content.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">🌙</div><p>Loading...</p></div>`;
   try {
-    const today = todayKey();
-    const res = await fetch(`/api/oura-expanded?action=all&date=${today}`);
+    const res = await fetch(`/api/oura-expanded?action=all&date=${todayKey()}`);
     const data = await res.json();
 
-    if (!data || (!data.sleep && !data.readiness)) {
-      content.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">🌙</div><p>No Oura data for today yet.</p></div>`;
+    if (!res.ok) {
+      content.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">⚠️</div><p>${esc(data.error || 'Could not load Oura data.')}</p></div>`;
       return;
     }
 
     const sleep = data.sleep || {};
     const readiness = data.readiness || {};
 
+    if (!data.sleep && !data.readiness) {
+      content.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">🌙</div><p>No Oura data found yet for ${data.date}.</p></div>`;
+      return;
+    }
+
     content.innerHTML = `
-      <div class="metric-date">${data.date || today}</div>
+      <div class="metric-date">${sleep.day || data.date}</div>
       <div class="metric-grid" style="margin-top:8px;">
+        <div class="metric-box"><div class="metric-value">${sleep.score ?? '—'}</div><div class="metric-label">Sleep Score</div></div>
         <div class="metric-box"><div class="metric-value">${sleep.hours ?? '—'}</div><div class="metric-label">Hours Slept</div></div>
-        <div class="metric-box"><div class="metric-value">${sleep.efficiency ? Math.round(sleep.efficiency * 100) + '%' : '—'}</div><div class="metric-label">Efficiency</div></div>
+        <div class="metric-box"><div class="metric-value">${sleep.efficiency != null ? Math.round(sleep.efficiency * 100) + '%' : '—'}</div><div class="metric-label">Efficiency</div></div>
         <div class="metric-box"><div class="metric-value">${readiness.readinessScore ?? '—'}</div><div class="metric-label">Readiness</div></div>
         <div class="metric-box"><div class="metric-value">${readiness.restingHR ?? sleep.lowestHeartRate ?? '—'}</div><div class="metric-label">Resting HR</div></div>
+        <div class="metric-box"><div class="metric-value">${sleep.deepSleepMinutes ?? '—'}</div><div class="metric-label">Deep Sleep (min)</div></div>
       </div>
     `;
   } catch (e) {
@@ -1007,23 +1105,106 @@ async function loadBodyMetrics() {
     const res = await fetch('/api/googlefit-sync?action=test&days=7');
     const data = await res.json();
 
-    if (!data || !data.found) {
-      content.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">⚖️</div><p>${data?.message || 'No body metrics found yet.'}</p></div>`;
+    if (!res.ok || !data || !data.found) {
+      content.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">⚖️</div><p>${esc(data?.message || 'No body metrics found yet.')}</p></div>`;
       return;
     }
+
+    const weightLbs = data.weight_kg != null ? (data.weight_kg * KG_TO_LBS).toFixed(1) : null;
+    const muscleLbs = data.muscle_mass_kg != null ? (data.muscle_mass_kg * KG_TO_LBS).toFixed(1) : null;
+    const boneLbs = data.bone_mass_kg != null ? (data.bone_mass_kg * KG_TO_LBS).toFixed(1) : null;
 
     content.innerHTML = `
       <div class="metric-date">${data.date}</div>
       <div class="metric-grid" style="margin-top:8px;">
-        <div class="metric-box body-tint"><div class="metric-value">${data.weight_kg != null ? data.weight_kg + ' kg' : '—'}</div><div class="metric-label">Weight</div></div>
+        <div class="metric-box body-tint"><div class="metric-value">${weightLbs != null ? weightLbs + ' lbs' : '—'}</div><div class="metric-label">Weight</div></div>
         <div class="metric-box body-tint"><div class="metric-value">${data.bodyfat_percent != null ? data.bodyfat_percent + '%' : '—'}</div><div class="metric-label">Body Fat</div></div>
-        <div class="metric-box body-tint"><div class="metric-value">${data.muscle_mass_kg != null ? data.muscle_mass_kg + ' kg' : '—'}</div><div class="metric-label">Muscle Mass</div></div>
-        <div class="metric-box body-tint"><div class="metric-value">${data.bone_mass_kg != null ? data.bone_mass_kg + ' kg' : '—'}</div><div class="metric-label">Bone Mass</div></div>
+        <div class="metric-box body-tint"><div class="metric-value">${muscleLbs != null ? muscleLbs + ' lbs' : '—'}</div><div class="metric-label">Muscle Mass</div></div>
+        <div class="metric-box body-tint"><div class="metric-value">${boneLbs != null ? boneLbs + ' lbs' : '—'}</div><div class="metric-label">Bone Mass</div></div>
       </div>
     `;
   } catch (e) {
     console.error('Body metrics load error:', e);
     content.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">⚠️</div><p>Couldn't load body metrics.</p></div>`;
+  }
+}
+
+/* ============================================================
+   AI INSIGHTS
+   ============================================================ */
+function getConfClass(score) {
+  if (score >= 70) return 'high';
+  if (score >= 40) return 'medium';
+  return 'low';
+}
+
+function renderInsights() {
+  const list = document.getElementById('insightsList');
+  const updated = document.getElementById('insightsUpdated');
+
+  if (!insightsCache || !insightsCache.insights || insightsCache.insights.length === 0) {
+    updated.textContent = insightsCache?.message || '';
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">✨</div><p>${insightsCache?.message || 'Tap "Analyze" to have AI review your Ideas and look for new patterns in your logged data.'}</p></div>`;
+    return;
+  }
+
+  updated.textContent = `Last analyzed: ${new Date(insightsCache.generatedAt).toLocaleString()}`;
+
+  const sorted = insightsCache.insights.slice().sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+
+  list.innerHTML = sorted.map(ins => `
+    <div class="insight-card ${getConfClass(ins.confidence || 0)}">
+      <span class="insight-badge ${ins.type === 'new_suggestion' ? 'new' : 'refined'}">
+        ${ins.type === 'new_suggestion' ? '✨ New from AI' : '💡 Your idea, refined'}
+      </span>
+      <div class="insight-title">${esc(ins.text)}</div>
+      <div class="insight-confidence-row">
+        <div class="insight-bar-track"><div class="insight-bar-fill" style="width:${ins.confidence || 0}%"></div></div>
+        <div class="insight-confidence-num">${ins.confidence ?? 0}%</div>
+      </div>
+      ${ins.evidence ? `<div class="insight-evidence">${esc(ins.evidence)}</div>` : ''}
+      ${ins.userConfidence != null ? `<div class="insight-meta">Your original confidence: ${ins.userConfidence}/5</div>` : ''}
+    </div>
+  `).join('');
+}
+
+async function loadInsights(forceRefresh) {
+  if (DEMO_MODE) {
+    insightsCache = demoInsights();
+    localStorage.setItem(PREFIX + 'insights', JSON.stringify(insightsCache));
+    renderInsights();
+    return;
+  }
+
+  if (!forceRefresh && insightsCache) { renderInsights(); return; }
+
+  const btn = document.getElementById('analyzeBtn');
+  const list = document.getElementById('insightsList');
+  const updated = document.getElementById('insightsUpdated');
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Analyzing…'; }
+  updated.textContent = 'Analyzing your data — this can take 10-20 seconds…';
+  if (!insightsCache) list.innerHTML = '';
+
+  try {
+    const res = await fetch(`/api/insights?sheetId=${SHEET_ID}`);
+    const data = await res.json();
+
+    if (!res.ok) {
+      updated.textContent = '';
+      list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p>${esc(data.message || data.error || 'Could not generate insights.')}</p></div>`;
+      return;
+    }
+
+    insightsCache = data;
+    localStorage.setItem(PREFIX + 'insights', JSON.stringify(insightsCache));
+    renderInsights();
+  } catch (e) {
+    console.error('Insights error:', e);
+    updated.textContent = '';
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p>Couldn't reach the AI Insights service.</p></div>`;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Analyze'; }
   }
 }
 
@@ -1038,7 +1219,8 @@ function switchPage(page, evt) {
 
   if (page === 'history') renderHistory();
   if (page === 'ideas') renderIdeasPage();
-  if (page === 'sleep') { loadOuraData(); loadBodyMetrics(); }
+  if (page === 'insights') loadInsights(false);
+  if (page === 'sleep' && !DEMO_MODE) { loadOuraData(); loadBodyMetrics(); }
 }
 
 function showToast(msg) {
@@ -1046,6 +1228,81 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+/* ============================================================
+   DEMO MODE: seed data + canned responses
+   ============================================================ */
+function seedDemoData() {
+  const today = todayKey();
+  const d = (offset) => {
+    const dt = new Date();
+    dt.setDate(dt.getDate() + offset);
+    return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+  };
+
+  entries = [
+    { id: uid()+1, date: d(0), startTime: '07:30', endTime: null, category: 'water', item:'', detail: '16', selectedPills:{}, severity:'', quality:'', notes:'', createdAt: new Date().toISOString() },
+    { id: uid()+2, date: d(0), startTime: '08:00', endTime: '08:20', category: 'food', item:'Greek yogurt with berries', detail:'', selectedPills:{}, severity:'', quality:'', notes:'', createdAt: new Date().toISOString() },
+    { id: uid()+3, date: d(0), startTime: '08:15', endTime: null, category: 'meds', item:'Magnesium glycinate', detail:'400mg', selectedPills:{}, severity:'', quality:'', notes:'', createdAt: new Date().toISOString() },
+    { id: uid()+4, date: d(0), startTime: '13:00', endTime: '13:45', category: 'food', item:'Turkey sandwich, chips', detail:'', selectedPills:{}, severity:'', quality:'', notes:'', createdAt: new Date().toISOString() },
+    { id: uid()+5, date: d(0), startTime: '15:30', endTime: '16:00', category: 'symptom', item:'Headache', detail:'', selectedPills:{}, severity: 6, quality:'', notes:'Started after lunch', createdAt: new Date().toISOString() },
+    { id: uid()+6, date: d(0), startTime: '18:00', endTime: '19:00', category: 'exercise', item:'Evening walk', detail:'', selectedPills:{}, severity:'', quality:'', notes:'', createdAt: new Date().toISOString() },
+    { id: uid()+7, date: d(-1), startTime: '07:00', endTime: null, category: 'water', item:'', detail:'24', selectedPills:{}, severity:'', quality:'', notes:'', createdAt: new Date().toISOString() },
+    { id: uid()+8, date: d(-1), startTime: '12:30', endTime: '13:00', category: 'food', item:'Almonds, apple', detail:'', selectedPills:{}, severity:'', quality:'', notes:'', createdAt: new Date().toISOString() },
+    { id: uid()+9, date: d(-1), startTime: '14:30', endTime: '15:00', category: 'symptom', item:'Headache', detail:'', selectedPills:{}, severity: 7, quality:'', notes:'', createdAt: new Date().toISOString() },
+    { id: uid()+10, date: d(-1), startTime: '22:30', endTime: '06:30', category: 'sleep', item:'', detail:'', selectedPills:{}, severity:'', quality: 6, notes:'', createdAt: new Date().toISOString() },
+    { id: uid()+11, date: d(-2), startTime: '19:00', endTime: '20:00', category: 'alcohol', item:'Glass of red wine', detail:'1', selectedPills:{}, severity:'', quality:'', notes:'', createdAt: new Date().toISOString() },
+    { id: uid()+12, date: d(-2), startTime: '23:00', endTime: '06:00', category: 'sleep', item:'', detail:'', selectedPills:{}, severity:'', quality: 5, notes:'Restless', createdAt: new Date().toISOString() },
+  ];
+
+  hypotheses = [
+    { id: uid()+100, hypothesis: 'Almonds might trigger my headaches', userConfidence: 4, sources: ['personal'], notes: 'Noticed it a few times after snacking', createdAt: new Date().toISOString() },
+    { id: uid()+101, hypothesis: 'Poor sleep the night before makes headaches more likely', userConfidence: 3, sources: ['personal','suggested'], notes: 'My doctor mentioned sleep and migraines are linked', createdAt: new Date().toISOString() },
+  ];
+
+  localStorage.setItem(PREFIX + 'entries', JSON.stringify(entries));
+  localStorage.setItem(PREFIX + 'hypotheses', JSON.stringify(hypotheses));
+}
+
+function demoInsights() {
+  return {
+    generatedAt: new Date().toISOString(),
+    entriesAnalyzed: entries.length,
+    ideasReviewed: hypotheses.length,
+    insights: [
+      { text: 'Headaches consistently follow nights with sleep quality 6/10 or lower', confidence: 78, type: 'new_suggestion', userConfidence: null, evidence: 'Both logged headaches (today and yesterday) followed nights rated 5-6/10 for sleep quality.' },
+      { text: 'Almonds might trigger headaches', confidence: 55, type: 'refined_idea', userConfidence: 4, evidence: 'Almonds were logged once, ~3 hours before a headache. One data point is suggestive but not yet conclusive — log a few more instances to confirm.' },
+      { text: 'Poor sleep the night before makes headaches more likely', confidence: 68, type: 'refined_idea', userConfidence: 3, evidence: 'Both headache days followed lower sleep-quality nights (5-6/10), consistent with this idea.' },
+      { text: 'Evening exercise may be linked to better next-day water intake', confidence: 35, type: 'new_suggestion', userConfidence: null, evidence: 'Limited data - only one exercise entry logged so far. Worth tracking more to see if this pattern holds.' },
+    ]
+  };
+}
+
+function showDemoOura() {
+  document.getElementById('ouraContent').innerHTML = `
+    <div class="metric-date">${todayKey()} (sample data)</div>
+    <div class="metric-grid" style="margin-top:8px;">
+      <div class="metric-box"><div class="metric-value">82</div><div class="metric-label">Sleep Score</div></div>
+      <div class="metric-box"><div class="metric-value">7.2</div><div class="metric-label">Hours Slept</div></div>
+      <div class="metric-box"><div class="metric-value">91%</div><div class="metric-label">Efficiency</div></div>
+      <div class="metric-box"><div class="metric-value">74</div><div class="metric-label">Readiness</div></div>
+      <div class="metric-box"><div class="metric-value">56</div><div class="metric-label">Resting HR</div></div>
+      <div class="metric-box"><div class="metric-value">88</div><div class="metric-label">Deep Sleep (min)</div></div>
+    </div>
+  `;
+}
+
+function showDemoBodyMetrics() {
+  document.getElementById('bodyContent').innerHTML = `
+    <div class="metric-date">${todayKey()} (sample data)</div>
+    <div class="metric-grid" style="margin-top:8px;">
+      <div class="metric-box body-tint"><div class="metric-value">138.2 lbs</div><div class="metric-label">Weight</div></div>
+      <div class="metric-box body-tint"><div class="metric-value">27.4%</div><div class="metric-label">Body Fat</div></div>
+      <div class="metric-box body-tint"><div class="metric-value">84.6 lbs</div><div class="metric-label">Muscle Mass</div></div>
+      <div class="metric-box body-tint"><div class="metric-value">6.1 lbs</div><div class="metric-label">Bone Mass</div></div>
+    </div>
+  `;
 }
 
 init();
