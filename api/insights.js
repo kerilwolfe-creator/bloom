@@ -136,24 +136,41 @@ async function readSheetData(sheetsApi, sheetId) {
 
   let entries = [];
   if (tabNames.has('Entries')) {
-    const resp = await sheetsApi.spreadsheets.values.get({ spreadsheetId: sheetId, range: 'Entries!A2:K' });
+    // A2:L - includes the EntryId column (L). Entries are now de-duplicated
+    // by EntryId, keeping only the latest row per entry (the same approach
+    // as /api/sheets?action=getEntries), and rows marked '__deleted__'
+    // (deletion tombstones) are dropped entirely - without this, the AI
+    // would see stale/duplicate rows from edits, plus deleted entries.
+    const resp = await sheetsApi.spreadsheets.values.get({ spreadsheetId: sheetId, range: 'Entries!A2:L' });
     const rows = resp.data.values || [];
-    entries = rows.slice(-MAX_ENTRY_ROWS).map(r => ({
-      date: r[0], startTime: r[1], endTime: r[2], category: r[3], item: r[4],
-      detail: r[5], pills: r[6], severity: r[7], quality: r[8], notes: r[9],
-    }));
+
+    const byId = new Map();
+    rows.forEach(r => {
+      const [date, startTime, endTime, category, item, detail, pills, severity, quality, notes, createdAt, entryId] = r;
+      if (!entryId) return;
+      if (category === '__deleted__') { byId.delete(entryId); return; }
+      byId.set(entryId, { date, startTime, endTime, category, item, detail, pills, severity, quality, notes });
+    });
+
+    entries = Array.from(byId.values()).slice(-MAX_ENTRY_ROWS);
   }
 
   let hypotheses = [];
   if (tabNames.has('Hypotheses')) {
-    const resp = await sheetsApi.spreadsheets.values.get({ spreadsheetId: sheetId, range: 'Hypotheses!A2:F' });
+    // A2:G - includes EntryId (G). De-dupe by EntryId (most recent edit
+    // wins), and drop '__deleted__' tombstones.
+    const resp = await sheetsApi.spreadsheets.values.get({ spreadsheetId: sheetId, range: 'Hypotheses!A2:G' });
     const rows = resp.data.values || [];
-    // De-dupe by hypothesis text, keeping the most recent row (edits append new rows)
-    const byText = new Map();
+
+    const byId = new Map();
     rows.forEach(r => {
-      byText.set(r[0], { hypothesis: r[0], userConfidence: r[1], sources: r[2], notes: r[3], createdAt: r[4] });
+      const [hypothesis, userConfidence, sources, notes, createdAt, appConfidence, entryId] = r;
+      if (!entryId) return;
+      if (hypothesis === '__deleted__') { byId.delete(entryId); return; }
+      byId.set(entryId, { hypothesis, userConfidence, sources, notes, createdAt });
     });
-    hypotheses = Array.from(byText.values());
+
+    hypotheses = Array.from(byId.values());
   }
 
   return { entries, hypotheses };
