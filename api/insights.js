@@ -10,6 +10,7 @@
 // Requires env vars: GOOGLE_SHEET_ID, GOOGLE_SERVICE_ACCOUNT_KEY, ANTHROPIC_API_KEY
 
 import { google } from 'googleapis';
+import { requireAuth } from './_lib/auth.js';
 
 const MODEL = 'claude-sonnet-4-6';
 const MAX_ENTRY_ROWS = 250; // cap how much log data we send, keeps prompt small/fast
@@ -23,6 +24,8 @@ const MAX_ENTRY_ROWS = 250; // cap how much log data we send, keeps prompt small
 export const maxDuration = 60;
 
 export default async function handler(req, res) {
+  if (!requireAuth(req, res)) return;
+
   try {
     if (req.method !== 'GET' && req.method !== 'POST') {
       return res.status(405).json({ error: 'Method not allowed' });
