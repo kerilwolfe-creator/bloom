@@ -152,6 +152,16 @@
     .filter-btn { padding: 6px 14px; font-size: 11px; font-weight: 500; border-radius: 12px; border: 1.5px solid rgba(61,43,31,0.10); background: white; cursor: pointer; color: var(--text-mid); }
     .filter-btn.active { border-color: var(--terracotta); background: var(--terracotta); color: white; }
 
+    /* Lock screen */
+    .lock-screen { position: fixed; inset: 0; background: var(--cream); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .lock-card { background: var(--warm-white); border-radius: 20px; padding: 32px 24px; max-width: 360px; width: 100%; text-align: center; box-shadow: 0 4px 20px var(--shadow-soft); }
+    .lock-card .logo { justify-content: center; display: flex; margin-bottom: 6px; }
+    .lock-card h2 { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 600; margin-bottom: 8px; color: var(--text-dark); }
+    .lock-card p { color: var(--text-light); font-size: 13px; margin-bottom: 20px; line-height: 1.5; }
+    .lock-card input { width: 100%; padding: 13px 16px; border: 1.5px solid rgba(61,43,31,0.12); border-radius: 12px; font-size: 16px; text-align: center; letter-spacing: 2px; font-family: 'DM Sans', sans-serif; outline: none; margin-bottom: 12px; }
+    .lock-card input:focus { border-color: var(--rose); }
+    .lock-error { color: var(--rose); font-size: 12px; margin-top: 10px; min-height: 16px; }
+
     /* Insights */
     .insight-card { background: var(--warm-white); border-radius: 14px; padding: 14px; margin-bottom: 12px; box-shadow: 0 2px 8px var(--shadow-soft); border-left: 3px solid; }
     .insight-card.high { border-left-color: var(--sage); }
@@ -172,6 +182,17 @@
   </style>
 </head>
 <body>
+
+<div class="lock-screen" id="lockScreen">
+  <div class="lock-card">
+    <div class="logo">Bl<em>oo</em>m</div>
+    <h2>Welcome back</h2>
+    <p>Enter your PIN to access your health journal.</p>
+    <input type="password" id="pinInput" inputmode="numeric" placeholder="••••" autocomplete="off" onkeydown="if(event.key==='Enter') submitPin()">
+    <button class="btn-primary" onclick="submitPin()">Unlock</button>
+    <div class="lock-error" id="lockError"></div>
+  </div>
+</div>
 
 <div class="bloom-app">
   <div class="demo-banner" id="demoBanner" style="display:none;">🎭 Demo Mode — sample data only, nothing here is saved or shared</div>
@@ -286,6 +307,66 @@ const DEMO_MODE = new URLSearchParams(location.search).get('demo') === '1';
 const PREFIX = DEMO_MODE ? 'bloom_demo_' : 'bloom_';
 
 /* ============================================================
+   AUTH (PIN-gated access)
+   ============================================================
+   Demo mode skips this entirely - it never calls real endpoints, so
+   nothing sensitive is reachable without a token regardless. */
+const AUTH_TOKEN_KEY = 'bloom_auth_token';
+let authToken = DEMO_MODE ? null : localStorage.getItem(AUTH_TOKEN_KEY);
+
+// Wraps fetch() to add the Authorization header automatically, and to
+// handle expired/invalid tokens by re-locking the app.
+async function authFetch(url, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 401 && !DEMO_MODE) {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    authToken = null;
+    showLockScreen('Session expired - please re-enter your PIN.');
+  }
+  return res;
+}
+
+function showLockScreen(message) {
+  document.getElementById('lockScreen').style.display = 'flex';
+  if (message) document.getElementById('lockError').textContent = message;
+  setTimeout(() => document.getElementById('pinInput')?.focus(), 50);
+}
+
+function hideLockScreen() {
+  document.getElementById('lockScreen').style.display = 'none';
+}
+
+async function submitPin() {
+  const pin = document.getElementById('pinInput').value;
+  const errEl = document.getElementById('lockError');
+  errEl.textContent = '';
+
+  try {
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      errEl.textContent = data.error || 'Incorrect PIN';
+      return;
+    }
+
+    authToken = data.token;
+    localStorage.setItem(AUTH_TOKEN_KEY, authToken);
+    hideLockScreen();
+    init();
+  } catch (e) {
+    console.error('Auth error:', e);
+    errEl.textContent = 'Could not reach the server. Try again.';
+  }
+}
+
+/* ============================================================
    STATE
    ============================================================ */
 let entries = JSON.parse(localStorage.getItem(PREFIX + 'entries') || '[]');
@@ -393,7 +474,7 @@ async function syncEntryToSheet(entry) {
   if (DEMO_MODE) return;
   setSyncStatus('syncing');
   try {
-    const res = await fetch('/api/sheets', {
+    const res = await authFetch('/api/sheets', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'appendEntries', entries: [entry], sheetId: SHEET_ID })
@@ -409,7 +490,7 @@ async function syncHypothesisToSheet(hyp) {
   if (DEMO_MODE) return;
   setSyncStatus('syncing');
   try {
-    const res = await fetch('/api/sheets', {
+    const res = await authFetch('/api/sheets', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'appendHypotheses', hypotheses: [hyp], sheetId: SHEET_ID })
@@ -1065,7 +1146,7 @@ async function loadOuraData() {
   const content = document.getElementById('ouraContent');
   content.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">🌙</div><p>Loading...</p></div>`;
   try {
-    const res = await fetch(`/api/oura-expanded?action=all&date=${todayKey()}`);
+    const res = await authFetch(`/api/oura-expanded?action=all&date=${todayKey()}`);
     const data = await res.json();
 
     if (!res.ok) {
@@ -1102,7 +1183,7 @@ async function loadBodyMetrics() {
   const content = document.getElementById('bodyContent');
   content.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">📊</div><p>Loading...</p></div>`;
   try {
-    const res = await fetch('/api/googlefit-sync?action=test&days=7');
+    const res = await authFetch('/api/googlefit-sync?action=test&days=7');
     const data = await res.json();
 
     if (!res.ok || !data || !data.found) {
@@ -1187,7 +1268,7 @@ async function loadInsights(forceRefresh) {
   if (!insightsCache) list.innerHTML = '';
 
   try {
-    const res = await fetch(`/api/insights?sheetId=${SHEET_ID}`);
+    const res = await authFetch(`/api/insights?sheetId=${SHEET_ID}`);
     const data = await res.json();
 
     if (!res.ok) {
@@ -1305,7 +1386,15 @@ function showDemoBodyMetrics() {
   `;
 }
 
-init();
+/* ============================================================
+   STARTUP
+   ============================================================ */
+if (DEMO_MODE || authToken) {
+  hideLockScreen();
+  init();
+} else {
+  showLockScreen();
+}
 </script>
 
 </body>
