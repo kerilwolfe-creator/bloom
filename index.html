@@ -173,7 +173,7 @@
     .insight-title { font-size: 13px; font-weight: 600; color: var(--text-dark); margin-bottom: 6px; }
     .insight-confidence-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
     .insight-bar-track { flex: 1; height: 6px; background: rgba(61,43,31,0.08); border-radius: 3px; overflow: hidden; }
-    .insight-bar-fill { height: 100%; background: linear-gradient(90deg, var(--rose), var(--gold), var(--sage)); }
+    .insight-bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
     .insight-confidence-num { font-size: 12px; font-weight: 600; color: var(--text-dark); min-width: 38px; text-align: right; }
     .insight-evidence { font-size: 11px; color: var(--text-light); line-height: 1.5; }
     .insight-meta { font-size: 9px; color: var(--text-light); margin-top: 6px; }
@@ -218,19 +218,33 @@
       </div>
     </div>
 
-    <!-- SLEEP / BODY PAGE -->
+    <!-- WELLNESS PAGE -->
     <div class="page" id="page-sleep">
       <div class="form-section">
-        <h2 class="section-title">Sleep &amp; Body</h2>
+        <h2 class="section-title">Wellness</h2>
 
-        <div class="metric-card" id="ouraCard">
+        <div class="metric-card" id="ouraSleepCard">
           <div class="metric-header">
             <h3>😴 Sleep (Oura)</h3>
             <button class="refresh-btn" onclick="loadOuraData()">Refresh</button>
           </div>
-          <div id="ouraContent">
+          <div id="ouraSleepContent">
             <div class="empty-state" style="margin:0;"><div class="empty-icon">🌙</div><p>Loading...</p></div>
           </div>
+        </div>
+
+        <div class="metric-card" id="ouraReadinessCard">
+          <div class="metric-header">
+            <h3>🔋 Readiness (Oura)</h3>
+          </div>
+          <div id="ouraReadinessContent"></div>
+        </div>
+
+        <div class="metric-card" id="ouraActivityCard">
+          <div class="metric-header">
+            <h3>🚶 Activity (Oura)</h3>
+          </div>
+          <div id="ouraActivityContent"></div>
         </div>
 
         <div class="metric-card body" id="bodyCard">
@@ -283,9 +297,9 @@
 
   <nav class="bloom-nav">
     <button class="nav-button active" onclick="switchPage('log', event)"><span class="nav-icon">📋</span><span>Log</span></button>
-    <button class="nav-button" onclick="switchPage('sleep', event)"><span class="nav-icon">😴</span><span>Sleep</span></button>
-    <button class="nav-button" onclick="switchPage('insights', event)"><span class="nav-icon">✨</span><span>Insights</span></button>
+    <button class="nav-button" onclick="switchPage('sleep', event)"><span class="nav-icon">💗</span><span>Wellness</span></button>
     <button class="nav-button" onclick="switchPage('ideas', event)"><span class="nav-icon">💡</span><span>Ideas</span></button>
+    <button class="nav-button" onclick="switchPage('insights', event)"><span class="nav-icon">✨</span><span>Insights</span></button>
     <button class="nav-button" onclick="switchPage('history', event)"><span class="nav-icon">📅</span><span>History</span></button>
   </nav>
 
@@ -374,7 +388,7 @@ let hypotheses = JSON.parse(localStorage.getItem(PREFIX + 'hypotheses') || '[]')
 let insightsCache = JSON.parse(localStorage.getItem(PREFIX + 'insights') || 'null');
 let editingHypothesisId = null;
 let editingEntryId = null;
-let selectedSources = [];
+let selectedSources = ['personal'];
 let historyRange = 7;
 
 const SHEET_ID = '1tBPEKpxFnIHPFaQd4rLdCzln04zykKYdZeN6tgmpaqs';
@@ -440,6 +454,7 @@ function init() {
   } else {
     loadOuraData();
     loadBodyMetrics();
+    loadFromSheet();
   }
 }
 
@@ -499,6 +514,63 @@ async function syncHypothesisToSheet(hyp) {
   } catch (e) {
     console.error('Sync network error:', e);
     setSyncStatus('error', 'Saved locally (offline?)');
+  }
+}
+
+/* ============================================================
+   LOAD FROM SHEET (Sheet as source of truth)
+   ============================================================
+   On every load (non-demo), pull the latest Entries/Hypotheses from the
+   Sheet and merge them into local storage. The Sheet wins for any entry
+   that has synced (by EntryId) - this fixes cross-device viewing and
+   recovers your data if local storage ever gets cleared. Any purely-local
+   entries that haven't synced yet (no matching EntryId on the Sheet, e.g.
+   logged while offline) are preserved and will sync normally on their next
+   edit/log action. */
+
+function mergeById(local, remote) {
+  const map = new Map();
+  local.forEach(item => map.set(item.id, item));
+  remote.forEach(item => map.set(item.id, item)); // Sheet wins for matching ids
+  return Array.from(map.values());
+}
+
+async function loadFromSheet() {
+  if (DEMO_MODE) return;
+  setSyncStatus('syncing', 'Loading from Sheet…');
+
+  try {
+    const [entriesRes, hypRes] = await Promise.all([
+      authFetch(`/api/sheets?action=getEntries&sheetId=${SHEET_ID}`),
+      authFetch(`/api/sheets?action=getHypotheses&sheetId=${SHEET_ID}`),
+    ]);
+
+    if (entriesRes.ok) {
+      const data = await entriesRes.json();
+      if (Array.isArray(data.entries)) {
+        entries = mergeById(entries, data.entries);
+        localStorage.setItem(PREFIX + 'entries', JSON.stringify(entries));
+      }
+    }
+
+    if (hypRes.ok) {
+      const data = await hypRes.json();
+      if (Array.isArray(data.hypotheses)) {
+        hypotheses = mergeById(hypotheses, data.hypotheses);
+        localStorage.setItem(PREFIX + 'hypotheses', JSON.stringify(hypotheses));
+      }
+    }
+
+    // Re-render everything now that local state may have changed
+    renderTodayEntries();
+    renderWaterProgress();
+    renderIdeasPage();
+    if (document.getElementById('page-history').classList.contains('active')) renderHistory();
+
+    setSyncStatus('ok', 'Synced');
+  } catch (e) {
+    console.error('Load from sheet error:', e);
+    setSyncStatus('error', 'Could not load from Sheet (offline?)');
   }
 }
 
@@ -829,6 +901,18 @@ function deleteEntry(id) {
   renderWaterProgress();
   if (document.getElementById('page-history').classList.contains('active')) renderHistory();
   showToast('✓ Deleted');
+
+  // Write a tombstone row to the Sheet so this deletion "wins" the next
+  // time the app reads from the Sheet (otherwise the entry would silently
+  // reappear, since the Sheet is append-only and otherwise has no record
+  // of the deletion).
+  if (!DEMO_MODE) {
+    syncEntryToSheet({
+      id, date: todayKey(), startTime: nowTime(), endTime: '',
+      category: '__deleted__', item: '', detail: '', selectedPills: {},
+      severity: '', quality: '', notes: '', createdAt: new Date().toISOString(),
+    });
+  }
 }
 
 /* ============================================================
@@ -1118,13 +1202,21 @@ function editIdea(id) {
     if (slider) slider.addEventListener('input', e => document.getElementById('conf_display').textContent = e.target.value);
   }, 50);
 }
-function cancelEdit() { editingHypothesisId = null; selectedSources = []; renderIdeasPage(); }
+function cancelEdit() { editingHypothesisId = null; selectedSources = ['personal']; renderIdeasPage(); }
 function deleteIdea(id) {
   if (!confirm('Delete this idea?')) return;
   hypotheses = hypotheses.filter(h => h.id !== id);
   localStorage.setItem(PREFIX + 'hypotheses', JSON.stringify(hypotheses));
   renderIdeasPage();
   showToast('✓ Deleted');
+
+  // Tombstone row - see deleteEntry for explanation.
+  if (!DEMO_MODE) {
+    syncHypothesisToSheet({
+      id, hypothesis: '__deleted__', userConfidence: 0, sources: [],
+      notes: '', createdAt: new Date().toISOString(), appConfidence: '',
+    });
+  }
 }
 function resetForm() {
   document.getElementById('hyp_text').value = '';
@@ -1143,39 +1235,82 @@ document.addEventListener('input', (e) => {
    SLEEP / BODY DATA  (real APIs)
    ============================================================ */
 async function loadOuraData() {
-  const content = document.getElementById('ouraContent');
-  content.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">🌙</div><p>Loading...</p></div>`;
+  const sleepContent = document.getElementById('ouraSleepContent');
+  const readinessContent = document.getElementById('ouraReadinessContent');
+  const activityContent = document.getElementById('ouraActivityContent');
+
+  sleepContent.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">🌙</div><p>Loading...</p></div>`;
+  readinessContent.innerHTML = '';
+  activityContent.innerHTML = '';
+
   try {
     const res = await authFetch(`/api/oura-expanded?action=all&date=${todayKey()}`);
     const data = await res.json();
 
     if (!res.ok) {
-      content.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">⚠️</div><p>${esc(data.error || 'Could not load Oura data.')}</p></div>`;
+      sleepContent.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">⚠️</div><p>${esc(data.error || 'Could not load Oura data.')}</p></div>`;
       return;
     }
 
     const sleep = data.sleep || {};
     const readiness = data.readiness || {};
+    const activity = data.activity || {};
 
-    if (!data.sleep && !data.readiness) {
-      content.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">🌙</div><p>No Oura data found yet for ${data.date}.</p></div>`;
+    if (!data.sleep && !data.readiness && !data.activity) {
+      sleepContent.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">🌙</div><p>No Oura data found yet for ${data.date}.</p></div>`;
       return;
     }
 
-    content.innerHTML = `
+    // --- Sleep ---
+    sleepContent.innerHTML = `
       <div class="metric-date">${sleep.day || data.date}</div>
       <div class="metric-grid" style="margin-top:8px;">
         <div class="metric-box"><div class="metric-value">${sleep.score ?? '—'}</div><div class="metric-label">Sleep Score</div></div>
         <div class="metric-box"><div class="metric-value">${sleep.hours ?? '—'}</div><div class="metric-label">Hours Slept</div></div>
         <div class="metric-box"><div class="metric-value">${sleep.efficiency != null ? Math.round(sleep.efficiency * 100) + '%' : '—'}</div><div class="metric-label">Efficiency</div></div>
-        <div class="metric-box"><div class="metric-value">${readiness.readinessScore ?? '—'}</div><div class="metric-label">Readiness</div></div>
-        <div class="metric-box"><div class="metric-value">${readiness.restingHR ?? sleep.lowestHeartRate ?? '—'}</div><div class="metric-label">Resting HR</div></div>
         <div class="metric-box"><div class="metric-value">${sleep.deepSleepMinutes ?? '—'}</div><div class="metric-label">Deep Sleep (min)</div></div>
+        <div class="metric-box"><div class="metric-value">${sleep.remSleepMinutes ?? '—'}</div><div class="metric-label">REM Sleep (min)</div></div>
+        <div class="metric-box"><div class="metric-value">${sleep.lightSleepMinutes ?? '—'}</div><div class="metric-label">Light Sleep (min)</div></div>
+        <div class="metric-box"><div class="metric-value">${sleep.lowestHeartRate ?? '—'}</div><div class="metric-label">Lowest HR</div></div>
+        <div class="metric-box"><div class="metric-value">${sleep.averageHeartRate ?? '—'}</div><div class="metric-label">Avg HR</div></div>
+        <div class="metric-box"><div class="metric-value">${sleep.latencyMinutes ?? '—'}</div><div class="metric-label">Time to Fall Asleep (min)</div></div>
       </div>
     `;
+
+    // --- Readiness ---
+    if (readiness && Object.keys(readiness).length) {
+      readinessContent.innerHTML = `
+        <div class="metric-date">${readiness.day || data.date}</div>
+        <div class="metric-grid" style="margin-top:8px;">
+          <div class="metric-box"><div class="metric-value">${readiness.readinessScore ?? '—'}</div><div class="metric-label">Readiness Score</div></div>
+          <div class="metric-box"><div class="metric-value">${readiness.restingHR ?? sleep.lowestHeartRate ?? '—'}</div><div class="metric-label">Resting HR</div></div>
+          <div class="metric-box"><div class="metric-value">${readiness.sleepBalance ?? '—'}</div><div class="metric-label">Sleep Balance</div></div>
+          <div class="metric-box"><div class="metric-value">${readiness.activityBalance ?? '—'}</div><div class="metric-label">Activity Balance</div></div>
+          <div class="metric-box" style="grid-column: span 2;"><div class="metric-value">${readiness.temperatureDeviation != null ? (readiness.temperatureDeviation > 0 ? '+' : '') + readiness.temperatureDeviation + '°' : '—'}</div><div class="metric-label">Body Temp Deviation</div></div>
+        </div>
+      `;
+    } else {
+      readinessContent.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">🔋</div><p>No readiness data found yet for ${data.date}.</p></div>`;
+    }
+
+    // --- Activity ---
+    if (activity && Object.keys(activity).length) {
+      activityContent.innerHTML = `
+        <div class="metric-date">${activity.day || data.date}</div>
+        <div class="metric-grid" style="margin-top:8px;">
+          <div class="metric-box"><div class="metric-value">${activity.score ?? '—'}</div><div class="metric-label">Activity Score</div></div>
+          <div class="metric-box"><div class="metric-value">${activity.steps != null ? activity.steps.toLocaleString() : '—'}</div><div class="metric-label">Steps</div></div>
+          <div class="metric-box" style="grid-column: span 2;"><div class="metric-value">${activity.activeCalories ?? '—'}</div><div class="metric-label">Active Calories</div></div>
+        </div>
+      `;
+    } else {
+      activityContent.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">🚶</div><p>No activity data found yet for ${data.date}.</p></div>`;
+    }
   } catch (e) {
     console.error('Oura load error:', e);
-    content.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">⚠️</div><p>Couldn't load Oura data.</p></div>`;
+    sleepContent.innerHTML = `<div class="empty-state" style="margin:0;"><div class="empty-icon">⚠️</div><p>Couldn't load Oura data.</p></div>`;
+    readinessContent.innerHTML = '';
+    activityContent.innerHTML = '';
   }
 }
 
@@ -1219,6 +1354,19 @@ function getConfClass(score) {
   return 'low';
 }
 
+// Maps confidence class to a solid color, used for the bar fill.
+// Previously the fill used a fixed 3-color gradient stretched across
+// whatever width the bar happened to be - so a 15%-wide bar showed the
+// gradient's full red->gold->green span compressed into that sliver,
+// making even very low scores appear to end in green. A solid color tied
+// to the actual score is far more legible.
+function getConfBarColor(score) {
+  const cls = getConfClass(score);
+  if (cls === 'high') return 'var(--sage)';
+  if (cls === 'medium') return 'var(--gold)';
+  return 'var(--rose)';
+}
+
 function renderInsights() {
   const list = document.getElementById('insightsList');
   const updated = document.getElementById('insightsUpdated');
@@ -1240,7 +1388,7 @@ function renderInsights() {
       </span>
       <div class="insight-title">${esc(ins.text)}</div>
       <div class="insight-confidence-row">
-        <div class="insight-bar-track"><div class="insight-bar-fill" style="width:${ins.confidence || 0}%"></div></div>
+        <div class="insight-bar-track"><div class="insight-bar-fill" style="width:${ins.confidence || 0}%; background:${getConfBarColor(ins.confidence || 0)};"></div></div>
         <div class="insight-confidence-num">${ins.confidence ?? 0}%</div>
       </div>
       ${ins.evidence ? `<div class="insight-evidence">${esc(ins.evidence)}</div>` : ''}
