@@ -136,41 +136,50 @@ async function readSheetData(sheetsApi, sheetId) {
 
   let entries = [];
   if (tabNames.has('Entries')) {
-    // A2:L - includes the EntryId column (L). Entries are now de-duplicated
-    // by EntryId, keeping only the latest row per entry (the same approach
-    // as /api/sheets?action=getEntries), and rows marked '__deleted__'
-    // (deletion tombstones) are dropped entirely - without this, the AI
-    // would see stale/duplicate rows from edits, plus deleted entries.
+    // A2:L - includes the EntryId column (L). Rows WITH an EntryId are
+    // de-duplicated (latest edit wins, '__deleted__' tombstones drop the
+    // entry). Rows WITHOUT an EntryId are legacy data written before this
+    // column existed - included as-is, since dropping them would make all
+    // pre-existing logged data invisible to the AI.
     const resp = await sheetsApi.spreadsheets.values.get({ spreadsheetId: sheetId, range: 'Entries!A2:L' });
     const rows = resp.data.values || [];
 
     const byId = new Map();
+    const legacy = [];
     rows.forEach(r => {
       const [date, startTime, endTime, category, item, detail, pills, severity, quality, notes, createdAt, entryId] = r;
-      if (!entryId) return;
+      if (!date && !category && !entryId) return; // skip blank rows
+
+      const entryObj = { date, startTime, endTime, category, item, detail, pills, severity, quality, notes };
+
+      if (!entryId) { legacy.push(entryObj); return; }
       if (category === '__deleted__') { byId.delete(entryId); return; }
-      byId.set(entryId, { date, startTime, endTime, category, item, detail, pills, severity, quality, notes });
+      byId.set(entryId, entryObj);
     });
 
-    entries = Array.from(byId.values()).slice(-MAX_ENTRY_ROWS);
+    entries = [...legacy, ...Array.from(byId.values())].slice(-MAX_ENTRY_ROWS);
   }
 
   let hypotheses = [];
   if (tabNames.has('Hypotheses')) {
-    // A2:G - includes EntryId (G). De-dupe by EntryId (most recent edit
-    // wins), and drop '__deleted__' tombstones.
+    // A2:G - includes EntryId (G). Same legacy-row handling as Entries.
     const resp = await sheetsApi.spreadsheets.values.get({ spreadsheetId: sheetId, range: 'Hypotheses!A2:G' });
     const rows = resp.data.values || [];
 
     const byId = new Map();
+    const legacy = [];
     rows.forEach(r => {
       const [hypothesis, userConfidence, sources, notes, createdAt, appConfidence, entryId] = r;
-      if (!entryId) return;
+      if (!hypothesis && !entryId) return; // skip blank rows
+
+      const hypObj = { hypothesis, userConfidence, sources, notes, createdAt };
+
+      if (!entryId) { legacy.push(hypObj); return; }
       if (hypothesis === '__deleted__') { byId.delete(entryId); return; }
-      byId.set(entryId, { hypothesis, userConfidence, sources, notes, createdAt });
+      byId.set(entryId, hypObj);
     });
 
-    hypotheses = Array.from(byId.values());
+    hypotheses = [...legacy, ...Array.from(byId.values())];
   }
 
   return { entries, hypotheses };
