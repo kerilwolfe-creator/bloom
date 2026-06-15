@@ -6,6 +6,7 @@
 
 const OURA_TOKEN = process.env.OURA_TOKEN;
 const OURA_API = 'https://api.ouraring.com/v2/usercollection';
+import { requireAuth } from './_lib/auth.js';
 
 // Vercel servers run in UTC; the person using this app is in Central Time.
 // Oura's "day" field for a sleep period is the date the person woke up,
@@ -15,6 +16,8 @@ const OURA_API = 'https://api.ouraring.com/v2/usercollection';
 const TIMEZONE = process.env.APP_TIMEZONE || 'America/Chicago';
 
 export default async function handler(req, res) {
+  if (!requireAuth(req, res)) return;
+
   try {
     if (!OURA_TOKEN) {
       return res.status(500).json({ error: 'OURA_TOKEN not set in environment variables' });
