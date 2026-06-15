@@ -245,23 +245,22 @@ async function getEntries(sheetsApi, sheetId) {
   const rows = resp.data.values || [];
 
   const map = new Map();
+  const legacy = [];
+  let legacyCounter = 0;
+
   for (const row of rows) {
     const [date, startTime, endTime, category, item, detail, pills, severity, quality, notes, createdAt, entryId] = row;
-    if (!entryId) continue;
 
-    // Tombstone: a later row with category '__deleted__' means this entry
-    // was deleted after its last real sync. Remove it from the result
-    // rather than treating '__deleted__' as a real category.
-    if (category === '__deleted__') {
-      map.delete(entryId);
-      continue;
-    }
+    // Skip fully blank rows (e.g. cleared cells from earlier troubleshooting)
+    if (!date && !category && !entryId) continue;
 
     let selectedPills = {};
     try { selectedPills = pills ? JSON.parse(pills) : {}; } catch { selectedPills = {}; }
 
-    map.set(entryId, {
-      id: isNaN(Number(entryId)) ? entryId : Number(entryId),
+    const entryObj = {
+      id: entryId
+        ? (isNaN(Number(entryId)) ? entryId : Number(entryId))
+        : `legacy_entry_${legacyCounter}`,
       date,
       startTime,
       endTime: endTime || null,
@@ -273,10 +272,31 @@ async function getEntries(sheetsApi, sheetId) {
       quality: quality || '',
       notes: notes || '',
       createdAt,
-    });
+    };
+
+    if (!entryId) {
+      // Legacy row, written before the EntryId column existed. There's no
+      // reliable way to de-duplicate/edit-track these, so include each one
+      // as its own entry rather than dropping it - otherwise all
+      // pre-existing data would silently disappear from both cross-device
+      // sync and AI Insights.
+      legacyCounter++;
+      legacy.push(entryObj);
+      continue;
+    }
+
+    // Tombstone: a later row with category '__deleted__' means this entry
+    // was deleted after its last real sync. Remove it from the result
+    // rather than treating '__deleted__' as a real category.
+    if (category === '__deleted__') {
+      map.delete(entryId);
+      continue;
+    }
+
+    map.set(entryId, entryObj);
   }
 
-  return Array.from(map.values());
+  return [...legacy, ...Array.from(map.values())];
 }
 
 // Same de-duplication strategy as getEntries, for the Hypotheses tab.
@@ -291,9 +311,32 @@ async function getHypotheses(sheetsApi, sheetId) {
   const rows = resp.data.values || [];
 
   const map = new Map();
+  const legacy = [];
+  let legacyCounter = 0;
+
   for (const row of rows) {
     const [hypothesis, userConfidence, sources, notes, createdAt, appConfidence, entryId] = row;
-    if (!entryId) continue;
+
+    if (!hypothesis && !entryId) continue; // skip blank rows
+
+    const hypObj = {
+      id: entryId
+        ? (isNaN(Number(entryId)) ? entryId : Number(entryId))
+        : `legacy_hyp_${legacyCounter}`,
+      hypothesis,
+      userConfidence: Number(userConfidence) || 0,
+      sources: sources ? sources.split(',').map(s => s.trim()).filter(Boolean) : [],
+      notes: notes || '',
+      createdAt,
+      appConfidence: appConfidence || '',
+    };
+
+    if (!entryId) {
+      // Legacy row - see getEntries for explanation.
+      legacyCounter++;
+      legacy.push(hypObj);
+      continue;
+    }
 
     // Tombstone - see getEntries for explanation.
     if (hypothesis === '__deleted__') {
@@ -301,18 +344,10 @@ async function getHypotheses(sheetsApi, sheetId) {
       continue;
     }
 
-    map.set(entryId, {
-      id: isNaN(Number(entryId)) ? entryId : Number(entryId),
-      hypothesis,
-      userConfidence: Number(userConfidence) || 0,
-      sources: sources ? sources.split(',').map(s => s.trim()).filter(Boolean) : [],
-      notes: notes || '',
-      createdAt,
-      appConfidence: appConfidence || '',
-    });
+    map.set(entryId, hypObj);
   }
 
-  return Array.from(map.values());
+  return [...legacy, ...Array.from(map.values())];
 }
 
 async function tabExistsCheck(sheetsApi, sheetId, tabName) {
