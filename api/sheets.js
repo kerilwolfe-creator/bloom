@@ -114,7 +114,7 @@ async function getOrCreateSheet(sheetsApi, sheetId, tabName, headerRow) {
 
 async function appendEntries(sheetsApi, sheetId, entries) {
   await getOrCreateSheet(sheetsApi, sheetId, 'Entries', [
-    'Date', 'StartTime', 'EndTime', 'Category', 'Item', 'Detail', 'Pills', 'Severity', 'Hours', 'Quality', 'Notes', 'CreatedAt'
+    'Date', 'StartTime', 'EndTime', 'Category', 'Item', 'Detail', 'Pills', 'Severity', 'Quality', 'Notes', 'CreatedAt'
   ]);
 
   const rows = entries.map(e => [
@@ -123,10 +123,9 @@ async function appendEntries(sheetsApi, sheetId, entries) {
     e.endTime || '',
     e.category,
     e.item || '',
-    e.dose || e.ounces || e.servings || '',
+    e.detail || '',
     JSON.stringify(e.selectedPills || {}),
     e.severity || '',
-    e.hours || '',
     e.quality || '',
     e.notes || '',
     e.createdAt,
@@ -134,7 +133,7 @@ async function appendEntries(sheetsApi, sheetId, entries) {
 
   await sheetsApi.spreadsheets.values.append({
     spreadsheetId: sheetId,
-    range: 'Entries!A:L',
+    range: 'Entries!A:K',
     valueInputOption: 'USER_ENTERED',
     requestBody: { values: rows },
   });
